@@ -23,7 +23,10 @@ test("release identity and installer ownership are independent of the preview", 
 });
 
 test("installer resources cannot sweep up local credentials or experiment files", () => {
-  const resources = config.bundle.resources;
+  const windows = JSON.parse(
+    read("src/apps/desktop/src-tauri/tauri.windows.conf.json"),
+  );
+  const resources = { ...config.bundle.resources, ...windows.bundle.resources };
   assert.deepEqual(
     Object.values(resources).sort(),
     [

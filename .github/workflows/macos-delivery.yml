@@ -1,0 +1,80 @@
+name: Mac delivery (public free)
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/macos-delivery.yml
+      - scripts/build-macos.sh
+      - scripts/package-macos.mjs
+      - source/**
+      - docs/release/macos/**
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: Native Mac architecture
+        type: choice
+        options: [arm64, x64, both]
+        default: arm64
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mac-delivery-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Enforce the user's free-only policy before GitHub allocates a runner.
+    if: ${{ github.event.repository.private == false }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        arch: ${{ fromJSON((inputs.architecture == 'both' || inputs.architecture == '') && '["arm64","x64"]' || format('["{0}"]', inputs.architecture)) }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'macos-15' || 'macos-15-intel' }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: source/package.json
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify native target
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          node -e 'if (process.platform !== "darwin" || process.arch !== process.env.EXPECTED_ARCH) process.exit(2)'
+          rustc -vV
+      - name: Install locked frontend dependencies
+        working-directory: source
+        run: pnpm install --frozen-lockfile
+      - name: Build and package Mac ZIP
+        run: bash scripts/build-macos.sh
+      - name: Upload delivery ZIP and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Bot-macos-${{ matrix.arch }}-review
+          path: |
+            local-only/macos-delivery/*.zip
+            local-only/macos-delivery/*.sha256
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+      - name: Preserve build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}-build-diagnostics
+          path: source/.build/**/build.json
+          if-no-files-found: ignore
+          retention-days: 1

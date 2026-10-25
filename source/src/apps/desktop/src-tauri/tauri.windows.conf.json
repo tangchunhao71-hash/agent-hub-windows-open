@@ -1,6 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "bundle": {
+    "resources": {
+      "resources/agent-hud-engine.exe": "agent-hud-engine.exe"
+    },
     "targets": ["nsis"],
     "windows": {
       "nsis": {

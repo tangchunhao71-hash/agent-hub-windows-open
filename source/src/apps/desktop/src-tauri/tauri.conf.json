@@ -36,7 +36,6 @@
       "icons/icon.png"
     ],
     "resources": {
-      "resources/agent-hud-engine.exe": "agent-hud-engine.exe",
       "../../../../LICENSE": "LICENSE",
       "../../../../docs/third-party.md": "THIRD_PARTY.md",
       "../../../../docs/dependency-notices.txt": "DEPENDENCY_NOTICES.txt",

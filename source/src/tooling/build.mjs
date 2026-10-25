@@ -242,6 +242,27 @@ export function executeRecordedBuild(
           outputs.push(
             artifactRecord(join(resources, `${name}${extension}`), sourceRoot),
           );
+        if (options.bundle && plan.platform === "macos") {
+          const config = JSON.parse(
+            readFileSync(
+              join(sourceRoot, "src/apps/desktop/src-tauri/tauri.conf.json"),
+              "utf8",
+            ),
+          );
+          const app = join(
+            targetDirectory,
+            plan.profile,
+            "bundle/macos",
+            config.productName + ".app",
+          );
+          for (const path of [
+            "Contents/Info.plist",
+            "Contents/MacOS/" + (config.mainBinaryName || "agent-hud-next"),
+            "Contents/Resources/agent-hud-engine",
+          ]) {
+            outputs.push(artifactRecord(join(app, path), sourceRoot));
+          }
+        }
         if (options.bundle && plan.platform === "windows") {
           const config = JSON.parse(
             readFileSync(
