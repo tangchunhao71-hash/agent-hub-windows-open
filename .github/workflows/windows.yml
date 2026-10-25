@@ -64,7 +64,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --workspace --locked --no-fail-fast
       - name: Build Windows NSIS installer
-        run: pnpm run build:windows -- --bundle --receipt .build/windows-release.json
+        run: |
+          $taskVsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $taskVsRoot = & $taskVsWhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or -not $taskVsRoot) { throw 'MSVC installation not found' }
+          $taskVcVars = Join-Path $taskVsRoot 'VC/Auxiliary/Build/vcvars64.bat'
+          pwsh -NoProfile -File ../scripts/build-windows.ps1 -Bundle -VcVars $taskVcVars -Receipt (Join-Path (Get-Location) '.build/windows-release.json')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Package candidate with license and actual signature report
         run: node ../scripts/package-windows.mjs .build/windows-release.json
       - name: Record installer provenance and checksum
