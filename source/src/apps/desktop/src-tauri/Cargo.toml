@@ -1,0 +1,22 @@
+[package]
+name = "agent-hud-next"
+version = "0.1.1"
+description = "Agent Bot for Windows, based on Agent HUD"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.3", features = [] }
+
+[dependencies]
+tauri = { version = "=2.12.4", features = ["tray-icon"] }
+agent-hud-host.workspace = true

@@ -1,0 +1,42 @@
+//! Windows: a taskbar entry, tray access, and Ctrl+Alt+H to toggle the glow.
+
+// Local Windows port: native global shortcut, retained for the app lifetime.
+#[path = "hotkey_windows.rs"]
+mod hotkey;
+pub(crate) fn install(app: &tauri::AppHandle) { hotkey::install(app); }
+
+pub(crate) fn window_opened(_app: &tauri::AppHandle) {}
+
+pub(crate) fn windows_changed(_app: &tauri::AppHandle) {}
+
+/// No Dock: Settings opens from the tray menu.
+pub(crate) fn reopened(_event: &tauri::RunEvent) -> bool {
+    false
+}
+
+pub(crate) fn statistics_chrome<'a>(
+    builder: tauri::WebviewWindowBuilder<'a, tauri::Wry, tauri::AppHandle>,
+) -> tauri::WebviewWindowBuilder<'a, tauri::Wry, tauri::AppHandle> {
+    builder
+}
+
+pub(crate) fn system_prefers_chinese() -> bool {
+    // The primary language is the low ten bits; 0x04 is Chinese.
+    unsafe { windows::Win32::Globalization::GetUserDefaultUILanguage() & 0x3ff == 0x04 }
+}
+
+/// A message box from a process that has not started Tauri yet.
+pub(crate) fn alert(title: &str, body: &str, _ok: &str) {
+    use windows::{
+        core::HSTRING,
+        Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONINFORMATION, MB_OK},
+    };
+    unsafe {
+        MessageBoxW(
+            None,
+            &HSTRING::from(body),
+            &HSTRING::from(title),
+            MB_OK | MB_ICONINFORMATION,
+        );
+    }
+}

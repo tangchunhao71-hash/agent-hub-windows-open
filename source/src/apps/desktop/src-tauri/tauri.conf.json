@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Agent Bot",
+  "version": "0.1.1",
+  "identifier": "app.agentbot.windows",
+  "build": {
+    "beforeDevCommand": "pnpm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "node ../../tooling/package-resources.mjs && pnpm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Agent Bot \u2014 Settings",
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "width": 960,
+        "height": 720,
+        "minWidth": 880,
+        "minHeight": 560,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.icns",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "resources": {
+      "resources/agent-hud-engine.exe": "agent-hud-engine.exe",
+      "../../../../LICENSE": "LICENSE",
+      "../../../../docs/third-party.md": "THIRD_PARTY.md",
+      "../../../../docs/dependency-notices.txt": "DEPENDENCY_NOTICES.txt",
+      "../../../../docs/release-license-supplement.txt": "RELEASE_LICENSE_SUPPLEMENT.txt",
+      "../../../packages/hud/src/assets/THIRD_PARTY_NOTICES.txt": "THIRD_PARTY_NOTICES.txt",
+      "../../../packages/hud/src/assets/LobeIcons-LICENSE.txt": "LobeIcons-LICENSE.txt"
+    }
+  }
+}

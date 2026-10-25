@@ -1,0 +1,17 @@
+# Account diagnostics, screenshots, installers and deployed binaries stay local.
+/local-only/
+**/node_modules/
+**/target/
+**/dist/
+**/.build/
+**/__pycache__/
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+*.log
+*.exe
+*.dll
+*.pdb
+*.sqlite
+*.sqlite3
+.DS_Store
