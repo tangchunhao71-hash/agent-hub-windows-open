@@ -42,7 +42,7 @@ const provenance={product:'Agent Bot',version:config.version,platform:'windows',
 writeFileSync(join(folder,'provenance.json'),JSON.stringify(provenance,null,2)+'\n');
 const names=[name,...Object.values(inputs),'provenance.json'];
 writeFileSync(join(folder,'SHA256SUMS.txt'),names.sort().map(file=>hash(readFileSync(join(folder,file)))+'  '+file).join('\n')+'\n');
-const result=spawnSync('powershell.exe',['-NoProfile','-File',join(root,'scripts/zip-windows-delivery.ps1'),'-Directory',folder,'-Destination',zip],{stdio:'inherit',windowsHide:true});
+const result=spawnSync('pwsh',['-NoProfile','-File',join(root,'scripts/zip-windows-delivery.ps1'),'-Directory',folder,'-Destination',zip],{stdio:'inherit',windowsHide:true});
 if(result.error||result.status!==0)throw Error('Windows ZIP creation failed');
 writeFileSync(zip+'.sha256',hash(readFileSync(zip))+'  '+label+'.zip\n');
 console.log(JSON.stringify({zip,sha256:hash(readFileSync(zip)),signature}));

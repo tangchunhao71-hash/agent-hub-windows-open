@@ -2,6 +2,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { signatureReport } from "../../../../scripts/signature-report.mjs";
+
+test(
+  "native Windows signature reader returns an Authenticode result",
+  {
+    skip: process.platform !== "win32",
+  },
+  () => {
+    const result = signatureReport(process.execPath);
+    assert.equal(result.platform, "windows");
+    assert.notEqual(result.status, "verification-failed");
+    assert.notEqual(result.status, "invalid-verification-result");
+    assert.equal(typeof result.status, "string");
+  },
+);
 test("ad hoc Mac signatures cannot be reported as trusted Developer ID", () => {
   const result = signatureReport("/tmp/app.app", "darwin", () => ({
     status: 0,

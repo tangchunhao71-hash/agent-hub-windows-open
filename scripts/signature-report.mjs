@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export function signatureReport(path, platform = process.platform, run = spawnSync) {
   if (platform === 'win32') {
-    const result = run('powershell.exe', ['-NoProfile', '-File', resolve(root, 'scripts/windows-signature-report.ps1'), '-Path', resolve(path)], {encoding:'utf8',windowsHide:true});
+    const result = run('pwsh', ['-NoProfile', '-File', resolve(root, 'scripts/windows-signature-report.ps1'), '-Path', resolve(path)], {encoding:'utf8',windowsHide:true});
     if (result.error || result.status !== 0) return {platform:'windows',trusted:false,status:'verification-failed'};
     try {
       const value = JSON.parse(result.stdout.replace(/^\uFEFF/,''));
