@@ -254,12 +254,8 @@ pub(super) fn owned_process(
     if created.is_some_and(|created| actual / 10 != created / 10) {
         return None;
     }
-    let Some(candidate) = token_user(process.as_raw_handle()) else {
-        return None;
-    };
-    let Some(current) = token_user(unsafe { GetCurrentProcess() }) else {
-        return None;
-    };
+    let candidate = token_user(process.as_raw_handle())?;
+    let current = token_user(unsafe { GetCurrentProcess() })?;
     let candidate = unsafe { &*candidate.as_ptr().cast::<TOKEN_USER>() };
     let current = unsafe { &*current.as_ptr().cast::<TOKEN_USER>() };
     (unsafe { EqualSid(candidate.User.Sid, current.User.Sid) } != 0).then_some(process)

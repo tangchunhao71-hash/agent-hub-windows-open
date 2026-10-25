@@ -128,7 +128,7 @@ fn ports(words: &[u32], pid: u32) -> Result<Vec<u16>, String> {
         return Err(UNAVAILABLE.into());
     }
     let mut result = Vec::new();
-    for row in words[1..1 + count * 6].chunks_exact(6) {
+    for row in words[1..1 + count * 6].as_chunks::<6>().0 {
         if row[0] == 2 && row[1].to_ne_bytes() == [127, 0, 0, 1] && row[5] == pid {
             let port = u16::from_be(row[2] as u16);
             if port != 0 {
@@ -159,7 +159,7 @@ fn tcp_ports(pid: u32) -> Result<Vec<u16>, String> {
         return Err(UNAVAILABLE.into());
     }
     for _ in 0..3 {
-        if size < 4 || size > 16 * 1024 * 1024 {
+        if !(4..=16 * 1024 * 1024).contains(&size) {
             return Err(UNAVAILABLE.into());
         }
         let mut words = vec![0u32; (size as usize).div_ceil(4)];
