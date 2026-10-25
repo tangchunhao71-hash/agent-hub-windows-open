@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! The request lifecycle written by both Buddy clients, independent of usage.
 //! A completed assistant message can precede another tool in the same request;
 //! it makes the mark idle but is not proof of a successful completed user turn.
@@ -19,31 +20,30 @@ enum Event<'a> {
 
 fn event(v: &Value) -> Option<Event<'_>> {
     match text(&v["type"])? {
-        "message" if v["role"] == "user" => {
-            (v["providerData"]["startsNewUserRequest"] == true
-                || (v["providerData"]["isMeta"] != true
-                    && v["providerData"]["startsNewUserRequest"] != false))
-                .then_some(Event::Prompt)
-        }
+        "message" if v["role"] == "user" => (v["providerData"]["startsNewUserRequest"] == true
+            || (v["providerData"]["isMeta"] != true
+                && v["providerData"]["startsNewUserRequest"] != false))
+            .then_some(Event::Prompt),
         "reasoning" => Some(Event::Working),
         "function_call" => Some(Event::Call(text(&v["callId"])?, text(&v["name"])?)),
         "function_call_result" => Some(Event::Result(
             text(&v["callId"])?,
-            matches!(text(&v["status"]), Some("failed" | "error" | "cancelled" | "canceled")),
+            matches!(
+                text(&v["status"]),
+                Some("failed" | "error" | "cancelled" | "canceled")
+            ),
         )),
         "message" if v["role"] == "assistant" => match text(&v["status"]) {
             Some("completed") => Some(Event::End(None)),
-            Some("cancelled" | "canceled" | "interrupted") => {
-                Some(Event::End(Some("interrupted")))
-            }
+            Some("cancelled" | "canceled" | "interrupted") => Some(Event::End(Some("interrupted"))),
             Some("failed" | "error") => Some(Event::End(Some("failed"))),
-            Some("incomplete") => Some(Event::End(if v["providerData"]["error"]["message"]
-                == "Request was aborted."
-            {
-                Some("interrupted")
-            } else {
-                (!v["providerData"]["error"].is_null()).then_some("failed")
-            })),
+            Some("incomplete") => Some(Event::End(
+                if v["providerData"]["error"]["message"] == "Request was aborted." {
+                    Some("interrupted")
+                } else {
+                    (!v["providerData"]["error"].is_null()).then_some("failed")
+                },
+            )),
             Some("pending" | "streaming" | "in_progress") => Some(Event::Working),
             _ => None,
         },
@@ -65,13 +65,23 @@ fn work(name: &str) -> Option<Work> {
 pub(super) fn observe(log: &mut Log, v: &Value) {
     let Some(event) = event(v) else { return };
     let Some(at) = at(&v["timestamp"]).filter(|at| {
-        *at > 0 && *at <= chrono::Utc::now().timestamp_millis().saturating_add(MAX_FUTURE_MS)
-    }) else { return };
+        *at > 0
+            && *at
+                <= chrono::Utc::now()
+                    .timestamp_millis()
+                    .saturating_add(MAX_FUTURE_MS)
+    }) else {
+        return;
+    };
     let previous = &log.source_state["buddyLifecycle"];
     let previous_request = text(&previous["request"]).map(str::to_owned);
     let explicit_request = text(&v["providerData"]["conversationRequestId"]);
     let request = explicit_request
-        .or_else(|| matches!(event, Event::Prompt).then(|| text(&v["id"])).flatten())
+        .or_else(|| {
+            matches!(event, Event::Prompt)
+                .then(|| text(&v["id"]))
+                .flatten()
+        })
         .or(previous_request.as_deref())
         .map(str::to_owned);
     let Some(request) = request else { return };
@@ -88,9 +98,13 @@ pub(super) fn observe(log: &mut Log, v: &Value) {
     // A tool result without its open call is historical/partial evidence, not
     // permission to restart an otherwise idle request (including equal-clock replay).
     if let Event::Result(id, _) = event {
-        if !same_request || !log.live.activity.as_ref().is_some_and(|activity| {
-            activity.calls.iter().any(|call| call.id == id)
-        }) {
+        if !same_request
+            || !log
+                .live
+                .activity
+                .as_ref()
+                .is_some_and(|activity| activity.calls.iter().any(|call| call.id == id))
+        {
             return;
         }
     }
@@ -108,9 +122,13 @@ pub(super) fn observe(log: &mut Log, v: &Value) {
     let terminal = matches!(event, Event::End(_)) && v["status"] != "completed";
     // Source outcomes deliberately never include "completed": only the verified
     // Stop hook may establish successful completion and generate its reminder.
-    log.live.observe_source(&request, running, started, at, outcome);
+    log.live
+        .observe_source(&request, running, started, at, outcome);
     if prompt {
-        log.live.activity.get_or_insert_with(Activity::default).start();
+        log.live
+            .activity
+            .get_or_insert_with(Activity::default)
+            .start();
     }
     if running {
         let activity = log.live.activity.get_or_insert_with(Activity::default);
@@ -157,12 +175,20 @@ mod tests {
         for source in ["workbuddy", "codebuddy"] {
             let mut log = log(source);
             let mut user = prompt("r1", NOW);
-            if source == "workbuddy" { user["providerData"]["startsNewUserRequest"] = json!(true); }
+            if source == "workbuddy" {
+                user["providerData"]["startsNewUserRequest"] = json!(true);
+            }
             log.parse(&user);
             assert_eq!(state(&log, NOW + 1), "running");
             log.parse(&record("reasoning", "", None, "r1", NOW + 10));
             assert_eq!(state(&log, NOW + 11), "running");
-            log.parse(&record("message", "assistant", Some("completed"), "r1", NOW + 20));
+            log.parse(&record(
+                "message",
+                "assistant",
+                Some("completed"),
+                "r1",
+                NOW + 20,
+            ));
             assert_eq!(state(&log, NOW + 21), "idle");
             assert_eq!(log.live.turns.len(), 1);
             assert_eq!(log.live.turns.back().unwrap().outcome, None);
@@ -173,15 +199,29 @@ mod tests {
     fn an_assistant_text_before_a_tool_does_not_finish_the_whole_request() {
         let mut log = log("workbuddy");
         log.parse(&prompt("r1", NOW));
-        log.parse(&record("message", "assistant", Some("completed"), "r1", NOW + 10));
+        log.parse(&record(
+            "message",
+            "assistant",
+            Some("completed"),
+            "r1",
+            NOW + 10,
+        ));
         let mut call = record("function_call", "", None, "r1", NOW + 11);
-        call["callId"] = json!("c1"); call["name"] = json!("Read");
+        call["callId"] = json!("c1");
+        call["name"] = json!("Read");
         log.parse(&call);
         assert_eq!(state(&log, NOW + 12), "running");
         assert_eq!(log.live.turns.len(), 1);
         assert_eq!(log.live.turns.back().unwrap().started, Some(NOW));
-        let mut result = record("function_call_result", "", Some("completed"), "r1", NOW + 13);
-        result["callId"] = json!("c1"); log.parse(&result);
+        let mut result = record(
+            "function_call_result",
+            "",
+            Some("completed"),
+            "r1",
+            NOW + 13,
+        );
+        result["callId"] = json!("c1");
+        log.parse(&result);
         assert_eq!(state(&log, NOW + 14), "running");
         assert!(log.live.activity.as_ref().unwrap().calls.is_empty());
     }
@@ -191,10 +231,13 @@ mod tests {
         let mut log = log("codebuddy");
         log.parse(&prompt("r1", NOW));
         let mut call = record("function_call", "", None, "r1", NOW + 1);
-        call["callId"] = json!("ask"); call["name"] = json!("AskUserQuestion"); log.parse(&call);
+        call["callId"] = json!("ask");
+        call["name"] = json!("AskUserQuestion");
+        log.parse(&call);
         assert_eq!(state(&log, NOW + 2), "waiting");
         let mut result = record("function_call_result", "", Some("completed"), "r1", NOW + 3);
-        result["callId"] = json!("ask"); log.parse(&result);
+        result["callId"] = json!("ask");
+        log.parse(&result);
         assert_eq!(state(&log, NOW + 4), "running");
     }
 
@@ -215,15 +258,31 @@ mod tests {
 
     #[test]
     fn errors_and_cancellation_end_work_and_reject_late_same_request_activity() {
-        for status in ["incomplete", "failed", "error", "cancelled", "canceled", "interrupted"] {
+        for status in [
+            "incomplete",
+            "failed",
+            "error",
+            "cancelled",
+            "canceled",
+            "interrupted",
+        ] {
             let mut log = log("workbuddy");
             log.parse(&prompt("r1", NOW));
             let mut end = record("message", "assistant", Some(status), "r1", NOW + 1);
-            if status == "incomplete" { end["providerData"]["error"] = json!({"status":429}); }
+            if status == "incomplete" {
+                end["providerData"]["error"] = json!({"status":429});
+            }
             log.parse(&end);
             assert_eq!(state(&log, NOW + 2), "idle", "{status}");
-            let outcome = if matches!(status, "cancelled" | "canceled" | "interrupted") { "interrupted" } else { "failed" };
-            assert_eq!(log.live.turns.back().unwrap().outcome.as_deref(), Some(outcome));
+            let outcome = if matches!(status, "cancelled" | "canceled" | "interrupted") {
+                "interrupted"
+            } else {
+                "failed"
+            };
+            assert_eq!(
+                log.live.turns.back().unwrap().outcome.as_deref(),
+                Some(outcome)
+            );
             log.parse(&record("reasoning", "", None, "r1", NOW + 3));
             assert_eq!(state(&log, NOW + 4), "idle", "{status}");
             log.parse(&prompt("r2", NOW + 5));
@@ -236,7 +295,8 @@ mod tests {
         let mut log = log("codebuddy");
         for key in ["isMeta", "startsNewUserRequest"] {
             let mut user = prompt("r1", NOW);
-            user["providerData"][key] = json!(key == "isMeta"); log.parse(&user);
+            user["providerData"][key] = json!(key == "isMeta");
+            log.parse(&user);
             assert_eq!(state(&log, NOW + 1), "idle");
         }
         log.parse(&record("ai-title", "", None, "r1", NOW + 1));
@@ -261,14 +321,23 @@ mod tests {
         end["providerData"]["error"] = json!({"message":"Request was aborted."});
         log.parse(&end);
         assert_eq!(state(&log, NOW + 2), "idle");
-        assert_eq!(log.live.turns.back().unwrap().outcome.as_deref(), Some("interrupted"));
+        assert_eq!(
+            log.live.turns.back().unwrap().outcome.as_deref(),
+            Some("interrupted")
+        );
     }
 
     #[test]
     fn incomplete_without_an_error_is_terminal_but_does_not_claim_failure_or_success() {
         let mut log = log("codebuddy");
         log.parse(&prompt("r1", NOW));
-        log.parse(&record("message", "assistant", Some("incomplete"), "r1", NOW + 1));
+        log.parse(&record(
+            "message",
+            "assistant",
+            Some("incomplete"),
+            "r1",
+            NOW + 1,
+        ));
         log.parse(&record("reasoning", "", None, "r1", NOW + 2));
         assert_eq!(state(&log, NOW + 3), "idle");
         assert_eq!(log.live.turns.back().unwrap().outcome, None);
@@ -278,7 +347,9 @@ mod tests {
     fn missing_bad_and_far_future_timestamps_never_create_work() {
         let mut log = log("workbuddy");
         for timestamp in [Value::Null, json!("invalid"), json!(-5), json!(i64::MAX)] {
-            let mut user = prompt("r1", NOW); user["timestamp"] = timestamp; log.parse(&user);
+            let mut user = prompt("r1", NOW);
+            user["timestamp"] = timestamp;
+            log.parse(&user);
         }
         assert!(log.live.turns.is_empty());
         assert_eq!(state(&log, NOW), "idle");
@@ -288,11 +359,16 @@ mod tests {
     fn rfc3339_timestamps_and_old_unclosed_requests_use_the_existing_expiry() {
         let mut log = log("codebuddy");
         let mut user = prompt("r1", NOW);
-        user["timestamp"] = json!(chrono::DateTime::from_timestamp_millis(NOW).unwrap().to_rfc3339());
+        user["timestamp"] = json!(chrono::DateTime::from_timestamp_millis(NOW)
+            .unwrap()
+            .to_rfc3339());
         log.parse(&user);
         assert_eq!(state(&log, NOW + 1), "running");
         assert_eq!(state(&log, NOW + 1_800_001), "idle");
-        assert_eq!(log.live.next_change(NOW + 1, "codebuddy", None), Some(NOW + 1_800_000));
+        assert_eq!(
+            log.live.next_change(NOW + 1, "codebuddy", None),
+            Some(NOW + 1_800_000)
+        );
     }
 
     #[test]
@@ -300,11 +376,20 @@ mod tests {
         let mut log = log("workbuddy");
         let user = prompt("r1", NOW);
         let end = record("message", "assistant", Some("completed"), "r1", NOW + 10);
-        log.parse(&user); log.parse(&end); log.parse(&user); log.parse(&end);
+        log.parse(&user);
+        log.parse(&end);
+        log.parse(&user);
+        log.parse(&end);
         assert_eq!(state(&log, NOW + 11), "idle");
         assert_eq!(log.live.turns.len(), 1);
         log.parse(&prompt("r2", NOW + 20));
-        log.parse(&record("message", "assistant", Some("completed"), "r1", NOW + 30));
+        log.parse(&record(
+            "message",
+            "assistant",
+            Some("completed"),
+            "r1",
+            NOW + 30,
+        ));
         assert_eq!(state(&log, NOW + 31), "running");
         assert_eq!(log.live.turns.back().unwrap().id.as_deref(), Some("r2"));
     }
@@ -317,7 +402,8 @@ mod tests {
         end["providerData"]["messageId"] = json!("m1");
         end["providerData"]["model"] = json!("test-model");
         end["providerData"]["usage"] = json!({"input_tokens":10,"output_tokens":20});
-        log.parse(&end); log.parse(&end);
+        log.parse(&end);
+        log.parse(&end);
         assert_eq!(log.usage.input, 10);
         assert_eq!(log.usage.output, 20);
         assert_eq!(log.messages.len(), 1);
@@ -327,9 +413,17 @@ mod tests {
     #[test]
     fn checkpoint_round_trip_retains_the_request_clock_and_stops_replayed_prompts() {
         let mut log = log("codebuddy");
-        let user = prompt("r1", NOW); log.parse(&user);
-        log.parse(&record("message", "assistant", Some("completed"), "r1", NOW + 1));
-        let mut restored: Log = serde_json::from_value(serde_json::to_value(&log).unwrap()).unwrap();
+        let user = prompt("r1", NOW);
+        log.parse(&user);
+        log.parse(&record(
+            "message",
+            "assistant",
+            Some("completed"),
+            "r1",
+            NOW + 1,
+        ));
+        let mut restored: Log =
+            serde_json::from_value(serde_json::to_value(&log).unwrap()).unwrap();
         restored.parse(&user);
         assert_eq!(state(&restored, NOW + 2), "idle");
         assert_eq!(restored.live.turns.len(), 1);

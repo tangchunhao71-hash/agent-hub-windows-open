@@ -1,10 +1,13 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Windows adaptation: foreground an existing Antigravity desktop window.
 //! Never launch a process, and never report a foreground request as success
 //! until Windows confirms the selected window is actually foreground.
 use std::{ffi::c_void, path::Path};
 use windows_sys::Win32::{
     Foundation::CloseHandle,
-    System::Threading::{OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION},
+    System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
+    },
 };
 
 type Window = *mut c_void;
@@ -22,18 +25,25 @@ pub(crate) const ACTIVATES_APPS: bool = true;
 const ANTIGRAVITY: &str = "com.google.antigravity";
 
 fn antigravity_executable(path: &str) -> bool {
-    Path::new(path).file_name().and_then(|s| s.to_str())
+    Path::new(path)
+        .file_name()
+        .and_then(|s| s.to_str())
         .is_some_and(|name| name.eq_ignore_ascii_case("Antigravity.exe"))
 }
 unsafe extern "system" fn collect(window: Window, data: isize) -> i32 {
-    if unsafe { IsWindowVisible(window) } == 0 { return 1; }
+    if unsafe { IsWindowVisible(window) } == 0 {
+        return 1;
+    }
     let mut pid = 0;
     unsafe { GetWindowThreadProcessId(window, &mut pid) };
     let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
-    if process.is_null() { return 1; }
+    if process.is_null() {
+        return 1;
+    }
     let mut path = vec![0u16; 32768];
     let mut length = path.len() as u32;
-    let found = unsafe { QueryFullProcessImageNameW(process, 0, path.as_mut_ptr(), &mut length) } != 0;
+    let found =
+        unsafe { QueryFullProcessImageNameW(process, 0, path.as_mut_ptr(), &mut length) } != 0;
     unsafe { CloseHandle(process) };
     if found && antigravity_executable(&String::from_utf16_lossy(&path[..length as usize])) {
         // The caller owns this Vec for the entire synchronous EnumWindows call.
@@ -53,16 +63,26 @@ pub(crate) fn app_running(bundle_id: &str) -> bool {
     bundle_id != ANTIGRAVITY || !windows().is_empty()
 }
 pub(crate) fn activate_app(bundle_id: &str) -> bool {
-    if bundle_id != ANTIGRAVITY { return false; }
+    if bundle_id != ANTIGRAVITY {
+        return false;
+    }
     let candidates = windows();
     let foreground = unsafe { GetForegroundWindow() };
-    if candidates.len() != 1 { return false; }
-    if candidates.contains(&foreground) { return true; }
+    if candidates.len() != 1 {
+        return false;
+    }
+    if candidates.contains(&foreground) {
+        return true;
+    }
     // A CDP page does not identify its native HWND. Do not pick an arbitrary
     // project when several Antigravity windows exist.
-    let [window] = candidates.as_slice() else { return false; };
+    let [window] = candidates.as_slice() else {
+        return false;
+    };
     unsafe {
-        if IsIconic(*window) != 0 { ShowWindow(*window, 9); }
+        if IsIconic(*window) != 0 {
+            ShowWindow(*window, 9);
+        }
         SetForegroundWindow(*window);
         GetForegroundWindow() == *window
     }
@@ -72,7 +92,9 @@ mod tests {
     use super::*;
     #[test]
     fn executable_matching_is_exact_and_case_insensitive() {
-        assert!(antigravity_executable(r"C:\Users\测试\App Data\Antigravity.exe"));
+        assert!(antigravity_executable(
+            r"C:\Users\测试\App Data\Antigravity.exe"
+        ));
         assert!(antigravity_executable(r"D:\Apps\ANTIGRAVITY.EXE"));
         assert!(!antigravity_executable(r"C:\Apps\not-Antigravity.exe"));
         assert!(!antigravity_executable(r"C:\Antigravity.exe\other.exe"));

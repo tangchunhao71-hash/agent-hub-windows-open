@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Each screen's HUD window: its size and place, from the screen, the screen's
 //! display preferences. The transparent canvas covers the complete monitor.
 //! The app plans its own windows, so Settings can close.
@@ -248,7 +249,12 @@ mod tests {
                 (-2560, -1440, 2560, 1440),
                 (1920, 0, 800, 600),
             ] {
-                let bounds = super::super::Rect { x, y, width, height };
+                let bounds = super::super::Rect {
+                    x,
+                    y,
+                    width,
+                    height,
+                };
                 let monitor = HudMonitor {
                     screen_id: "a".into(),
                     window_label: "hud".into(),

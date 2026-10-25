@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Portable domain engine. No Tauri, Swift, system frameworks or process execution.
 //! Source directories and operating-system actions are supplied by the platform boundary.
 //! Files are streamed and cached by offset; incomplete trailing records are retried.
@@ -20,8 +21,8 @@ mod data_version;
 mod database;
 pub mod demo;
 mod discovery;
-mod hook_events;
 mod grok_activity;
+mod hook_events;
 mod ingestion;
 mod island_events;
 mod legacy;
@@ -36,8 +37,8 @@ mod session_usage;
 mod sessions;
 mod settings;
 mod snapshot;
-mod source_batches;
 mod source_activity;
+mod source_batches;
 mod source_db;
 mod statistics;
 mod usage;

@@ -494,8 +494,36 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-react-remove-scroll-bar: UNRESOLVED. npm react-remove-scroll-bar@2.3.8 declares MIT, but its published gitHead b3b1287aad81def2e2ae707274b74531b61ddbaf is not available at the declared upstream repository. No separate license text was bundled. This remains a sales-review blocker.
-Source: https://registry.npmjs.org/react-remove-scroll-bar/2.3.8
+react-remove-scroll-bar 2.3.7
+Declared license: MIT, verified in both published npm metadata and the exact upstream package.json.
+Author attribution: Anton Korzunov (theKashey).
+Registry: https://registry.npmjs.org/react-remove-scroll-bar/2.3.7
+Source: https://github.com/theKashey/react-remove-scroll-bar/tree/29e9fcd1eecf7d3b77a767941c4a57fe461fc1e4
+Upstream package.json blob: ca37f53a5e895e8237b4479e4165ab9518489c9a
+Tarball integrity: sha512-UzA0npskGFA2bUqwWsSRJscuQEt7zyfVtMpCtBl/lk+k/ky6lzYImEks9jwgxTDe/B0tb5hyrYgbQv/JQaHjDw==
+The archive has no separate license file. The standard MIT notice below is reproduced from the publisher's explicit MIT declaration, with author attribution from the same package metadata; it is not described as a fetched upstream LICENSE file. Version 2.3.8 was replaced because its published source revision could not be verified.
+
+MIT License
+
+Copyright (c) Anton Korzunov
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 @esbuild/win32-x64 0.28.2
 Declared license: MIT

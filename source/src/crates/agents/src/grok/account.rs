@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Grok Bot's personal quota, from the cache the Bot keeps itself. When the
 //! Bot read it stays the observation time: reading the file now does not
 //! make old data fresh.
@@ -23,24 +24,42 @@ fn iso(ms: i64) -> Option<String> {
 
 pub fn read(host: &dyn Host) -> Result<Reading, String> {
     let cached = read_cached(host);
-    let Ok(directory) = locate(host, &CACHE) else { return cached; };
-    let Some(slot) = bot::account_through(host, &directory) else { return cached; };
+    let Ok(directory) = locate(host, &CACHE) else {
+        return cached;
+    };
+    let Some(slot) = bot::account_through(host, &directory) else {
+        return cached;
+    };
     let reported = super::usage::read(host, &slot);
     let roster = bot::value_through(host, &directory, &bot::roster_key(&slot), 4);
-    let known = roster.as_ref().and_then(|v|v["rows"].as_array()).into_iter().flatten()
-        .filter_map(|row|row["id"].as_str()).map(|id|bot::session_id(&slot,id)).collect::<std::collections::HashSet<_>>();
+    let known = roster
+        .as_ref()
+        .and_then(|v| v["rows"].as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|row| row["id"].as_str())
+        .map(|id| bot::session_id(&slot, id))
+        .collect::<std::collections::HashSet<_>>();
     if bot::account_through(host, &directory).as_deref() != Some(slot.as_str()) {
-        return Err(l10n::text("读取期间 Grok Bot 账户发生变化", "Grok Bot account changed during reading"));
+        return Err(l10n::text(
+            "读取期间 Grok Bot 账户发生变化",
+            "Grok Bot account changed during reading",
+        ));
     }
     match (cached, reported) {
-        (Ok(mut reading), Ok(records)) => { attach_report(&mut reading, records, &known); Ok(reading) }
+        (Ok(mut reading), Ok(records)) => {
+            attach_report(&mut reading, records, &known);
+            Ok(reading)
+        }
         (Ok(mut reading), Err(error)) => {
             reading.notice = Some(format!("{}；{}", reading.notice.unwrap_or_default(), error));
             Ok(reading)
         }
         (Err(error), Ok(records)) => {
             let mut reading = Reading::empty("grok-bot");
-            reading.account = Some(json!({"id":legacy_unresolved("Grok", &format!("grok-bot:{}",bot::hash(&[&slot]))),"provider":"grok-bot","identity":"unresolved"}));
+            reading.account = Some(
+                json!({"id":legacy_unresolved("Grok", &format!("grok-bot:{}",bot::hash(&[&slot]))),"provider":"grok-bot","identity":"unresolved"}),
+            );
             reading.notice = Some(error);
             attach_report(&mut reading, records, &known);
             Ok(reading)
@@ -49,12 +68,25 @@ pub fn read(host: &dyn Host) -> Result<Reading, String> {
     }
 }
 
-fn attach_report(reading: &mut Reading, records: Vec<serde_json::Value>, known: &std::collections::HashSet<String>) {
-    let unmapped = records.iter().filter(|row|row["id"].as_str().is_none_or(|id|!known.contains(id)))
-        .filter_map(|row|row["totalTokens"].as_u64()).fold(0_u64,u64::saturating_add);
-    if unmapped>0 {
-        reading.notice = Some(format!("{}；{} {unmapped} token",reading.notice.as_deref().unwrap_or_default(),
-            l10n::text("另有无法匹配到当前 Bot 列表的用量：","Additional usage not matched to the current Bot list:")));
+fn attach_report(
+    reading: &mut Reading,
+    records: Vec<serde_json::Value>,
+    known: &std::collections::HashSet<String>,
+) {
+    let unmapped = records
+        .iter()
+        .filter(|row| row["id"].as_str().is_none_or(|id| !known.contains(id)))
+        .filter_map(|row| row["totalTokens"].as_u64())
+        .fold(0_u64, u64::saturating_add);
+    if unmapped > 0 {
+        reading.notice = Some(format!(
+            "{}；{} {unmapped} token",
+            reading.notice.as_deref().unwrap_or_default(),
+            l10n::text(
+                "另有无法匹配到当前 Bot 列表的用量：",
+                "Additional usage not matched to the current Bot list:"
+            )
+        ));
     }
     reading.session_records = records;
 }
@@ -248,23 +280,32 @@ mod tests {
 
     #[test]
     fn independent_bot_usage_survives_an_expired_quota_cache_without_cursor() {
-        let mut quota=fresh_quota(false);quota["expiresAtMs"]=json!(1);
-        let mut host=host_with(quota);
+        let mut quota = fresh_quota(false);
+        quota["expiresAtMs"] = json!(1);
+        let mut host = host_with(quota);
         host.natives.insert(("grok-bot".into(),"ReadBotUsage".into()),Ok(json!({
             "success":true,"accountSlot":"slot-1","periodStart":"2026-10-17T00:00:00Z", "periodEnd":"2026-10-24T12:00:00Z","observedAt":"2026-10-24T12:00:01Z",
             "dailySpend":[{"category":"bot-1","day":"2026-10-23","totalTokens":"12345"}]
         })));
-        let reading=read(&host).unwrap();
-        assert!(reading.quotas.is_empty());assert_eq!(reading.session_records.len(),1);
-        assert_eq!(reading.session_records[0]["totalTokens"],12345);
+        let reading = read(&host).unwrap();
+        assert!(reading.quotas.is_empty());
+        assert_eq!(reading.session_records.len(), 1);
+        assert_eq!(reading.session_records[0]["totalTokens"], 12345);
         assert!(reading.session_records[0].get("input").is_none());
-        assert!(reading.notice.unwrap().contains("12345"),"unmatched usage is not silently hidden");
+        assert!(
+            reading.notice.unwrap().contains("12345"),
+            "unmatched usage is not silently hidden"
+        );
     }
     #[test]
     fn bot_usage_failure_keeps_the_existing_quota() {
-        let mut host=host_with(fresh_quota(false));
-        host.natives.insert(("grok-bot".into(),"ReadBotUsage".into()),Err("fixture unavailable".into()));
-        let reading=read(&host).unwrap();assert_eq!(reading.quotas.len(),2);
+        let mut host = host_with(fresh_quota(false));
+        host.natives.insert(
+            ("grok-bot".into(), "ReadBotUsage".into()),
+            Err("fixture unavailable".into()),
+        );
+        let reading = read(&host).unwrap();
+        assert_eq!(reading.quotas.len(), 2);
         assert!(reading.session_records.is_empty());
         assert!(reading.notice.unwrap().contains("fixture unavailable"));
     }

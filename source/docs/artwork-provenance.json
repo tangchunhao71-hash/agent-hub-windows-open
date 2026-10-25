@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "externalImageInputs": [],
+  "externalFonts": [],
+  "files": [
+    {
+      "license": "MIT",
+      "sha256": "1e0eeb0165c4baa9fa5602880b31daf4ff16cdbab3540dd5c767310b86a43a32",
+      "path": "source/src/packages/app/src/assets/agent-bot-icon.svg",
+      "source": "Original geometry in scripts/create-release-artwork.mjs; raster/icon conversion via Sharp 0.35.5 and Tauri CLI"
+    },
+    {
+      "license": "MIT",
+      "sha256": "737a54044f990d1476b5bf956c689ffd4b060549a6df1264c04eba10c6d51c93",
+      "path": "source/src/packages/app/src/assets/agent-bot-icon.png",
+      "source": "Original geometry in scripts/create-release-artwork.mjs; raster/icon conversion via Sharp 0.35.5 and Tauri CLI"
+    },
+    {
+      "license": "MIT",
+      "sha256": "6de2d1fd8cd884bea89aff074f15bc1fb2b30820f24fd18df91d87c6d46c00dc",
+      "path": "source/src/packages/ui/src/assets/agent-bot-wallpaper.svg",
+      "source": "Original geometry in scripts/create-release-artwork.mjs; raster/icon conversion via Sharp 0.35.5 and Tauri CLI"
+    },
+    {
+      "license": "MIT",
+      "sha256": "964f9b99ff52293635d41c2a0198a71d797d7b32e7f36d685d430d1647e7ad48",
+      "path": "source/src/apps/desktop/src-tauri/icons/agent-bot/icon.png",
+      "source": "Original geometry in scripts/create-release-artwork.mjs; raster/icon conversion via Sharp 0.35.5 and Tauri CLI"
+    },
+    {
+      "license": "MIT",
+      "sha256": "9dda925b0308220a44f5d91a9224adc232d1dce819d3254a12cc76f65bc0ee2f",
+      "path": "source/src/apps/desktop/src-tauri/icons/agent-bot/icon.ico",
+      "source": "Original geometry in scripts/create-release-artwork.mjs; raster/icon conversion via Sharp 0.35.5 and Tauri CLI"
+    },
+    {
+      "license": "MIT",
+      "sha256": "e0ccd60dc81f8baa77f581793156ffb36160cbd23033508fe79a04062b6262aa",
+      "path": "source/src/apps/desktop/src-tauri/icons/agent-bot/icon.icns",
+      "source": "Original geometry in scripts/create-release-artwork.mjs; raster/icon conversion via Sharp 0.35.5 and Tauri CLI"
+    }
+  ],
+  "providerMarks": "Unchanged source-identification marks; see LobeIcons-LICENSE.txt and third-party.md. No trademark grant or endorsement is asserted."
+}

@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 import { FormatProvider } from "@agent-hud/ui/format-context";
 import {
   Component,
@@ -55,7 +56,7 @@ import {
 import { useHUDGeometry } from "./lib/use-hud-geometry";
 import type { HUDConfig } from "@agent-hud/hud/model";
 import type { NativeMethod, Session, Snapshot } from "./lib/types";
-import appIcon from "./assets/app-icon.png";
+import appIcon from "./assets/agent-bot-icon.png";
 import { snapshotLanguage } from "@agent-hud/ui/format";
 import type { AgentPluginItem } from "./settings/AgentPluginsPane";
 import { SettingsNavigation } from "./settings/SettingsNavigation";

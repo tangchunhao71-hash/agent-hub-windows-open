@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,6 +32,12 @@ test("installer resources cannot sweep up local credentials or experiment files"
     Object.values(resources).sort(),
     [
       "LICENSE",
+      "LICENSE-MIT",
+      "NOTICE",
+      "LICENSING.md",
+      "LICENSE_MAP.json",
+      "TERMS.md",
+      "PRIVACY.md",
       "DEPENDENCY_NOTICES.txt",
       "RELEASE_LICENSE_SUPPLEMENT.txt",
       "LobeIcons-LICENSE.txt",

@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! The application service shared by desktop, CLI and MCP transports.
 use agent_hud_core::{AccountProjection, AgentHudCore, SourceRoot};
 use agent_hud_platform::{AccountService, FileChanges, NativePlatform};
@@ -9,8 +10,8 @@ use std::{
 
 mod demo;
 mod grok_activity;
-mod source_activity;
 mod log_reminders;
+mod source_activity;
 #[cfg(test)]
 mod tests;
 pub use agent_hud_core::demo::DemoScript;
@@ -128,10 +129,15 @@ impl Runtime {
         } else {
             None
         };
-        let grok_activity = accounts.as_ref().map(|accounts| grok_activity::Activity::start(
-            accounts.grok_activity_reader(), core.source_collection_enabled("grok-bot")));
-        let source_activity = read_accounts.then(|| source_activity::Activity::start(
-            core.source_collection_enabled("antigravity")));
+        let grok_activity = accounts.as_ref().map(|accounts| {
+            grok_activity::Activity::start(
+                accounts.grok_activity_reader(),
+                core.source_collection_enabled("grok-bot"),
+            )
+        });
+        let source_activity = read_accounts.then(|| {
+            source_activity::Activity::start(core.source_collection_enabled("antigravity"))
+        });
         Ok(Self {
             core,
             platform,
@@ -180,8 +186,12 @@ impl Runtime {
     }
     pub fn set_change_waker(&mut self, wake: Arc<dyn Fn() + Send + Sync>) {
         self.changes.set_waker(Arc::clone(&wake));
-        if let Some(activity) = &self.grok_activity { activity.set_waker(Arc::clone(&wake)); }
-        if let Some(activity) = &self.source_activity { activity.set_waker(Arc::clone(&wake)); }
+        if let Some(activity) = &self.grok_activity {
+            activity.set_waker(Arc::clone(&wake));
+        }
+        if let Some(activity) = &self.source_activity {
+            activity.set_waker(Arc::clone(&wake));
+        }
         if let Some(accounts) = &self.accounts {
             accounts.set_waker(wake);
         }
@@ -277,8 +287,12 @@ impl Runtime {
         !due.is_empty() && self.core.remind_paths(due) > 0
     }
     pub fn stop_accounts(&self) {
-        if let Some(activity) = &self.grok_activity { activity.stop(); }
-        if let Some(activity) = &self.source_activity { activity.stop(); }
+        if let Some(activity) = &self.grok_activity {
+            activity.stop();
+        }
+        if let Some(activity) = &self.source_activity {
+            activity.stop();
+        }
         if let Some(accounts) = &self.accounts {
             accounts.stop();
         }
@@ -295,11 +309,18 @@ impl Runtime {
     }
     /// Rust-only entry for a destination validated by the native unread inbox.
     /// No `request` method exposes arbitrary targets supplied by a webview.
-    pub fn open_completion_target(&self, target:&Value)->Result<Value,String> {
-        if self.is_demo() {return Ok(json!({"opened":true,"action":"demo"}));}
+    pub fn open_completion_target(&self, target: &Value) -> Result<Value, String> {
+        if self.is_demo() {
+            return Ok(json!({"opened":true,"action":"demo"}));
+        }
         if self.platform.navigate_session(target)? {
             Ok(json!({"opened":true,"action":"native_completion"}))
-        } else {Err(l10n::text("无法打开该完成提醒对应的客户端会话", "Could not open this completion's client session"))}
+        } else {
+            Err(l10n::text(
+                "无法打开该完成提醒对应的客户端会话",
+                "Could not open this completion's client session",
+            ))
+        }
     }
     pub fn set_presentation(&mut self, key: &str, value: &Value) -> Result<Value, String> {
         self.core.set_presentation(key, value)

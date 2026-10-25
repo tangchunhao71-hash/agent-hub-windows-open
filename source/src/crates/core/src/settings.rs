@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! The app's settings and provider switches: defaults, validation, and the
 //! settings file, which another copy of the app may have written since.
 use super::*;
@@ -6,7 +7,6 @@ use super::*;
 pub(super) fn parse_preferences(bytes: &[u8]) -> Result<Value, serde_json::Error> {
     serde_json::from_slice(bytes.strip_prefix(&[0xef, 0xbb, 0xbf]).unwrap_or(bytes))
 }
-
 
 impl crate::AgentHudCore {
     pub fn client_hooks_enabled(&self) -> bool {
@@ -109,9 +109,10 @@ impl crate::AgentHudCore {
             "appearance" if ["dark", "light", "system"].contains(&value.as_str().unwrap_or("")) => {
             }
             "quotaDisplay" if matches!(value.as_str(), Some("consumed" | "remaining")) => {}
-            "codebuddyWorkbuddyAccountId" if value.as_str().is_some_and(|id|
-                id.len() <= 256 && id.trim() == id && !id.chars().any(char::is_control)
-            ) => {}
+            "codebuddyWorkbuddyAccountId"
+                if value.as_str().is_some_and(|id| {
+                    id.len() <= 256 && id.trim() == id && !id.chars().any(char::is_control)
+                }) => {}
             "codexHomes" | "antigravityCliSettings"
                 if value.as_array().is_some_and(|homes| {
                     homes.iter().all(|home| {
@@ -147,8 +148,7 @@ impl crate::AgentHudCore {
         // Local Windows parity: accept files saved by Windows PowerShell's UTF-8 writer.
         let bytes = fs::read(&self.settings_path).map_err(|e| e.to_string())?;
         let stored: Value =
-            parse_preferences(&bytes)
-                .map_err(|e| format!("Preferences could not be read: {e}"))?;
+            parse_preferences(&bytes).map_err(|e| format!("Preferences could not be read: {e}"))?;
         if let Some(values) = stored["settings"].as_object() {
             for (key, value) in values {
                 if self.settings.get(key).is_some() {
@@ -198,13 +198,25 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         let mut core = AgentHudCore::new(vec![], home.path().to_owned());
         assert_eq!(core.settings["codebuddyWorkbuddyAccountId"], "");
-        core.apply_setting("codebuddyWorkbuddyAccountId", &json!("workbuddy:account-a")).unwrap();
+        core.apply_setting("codebuddyWorkbuddyAccountId", &json!("workbuddy:account-a"))
+            .unwrap();
         let reopened = AgentHudCore::new(vec![], home.path().to_owned());
-        assert_eq!(reopened.settings["codebuddyWorkbuddyAccountId"], "workbuddy:account-a");
-        for invalid in [json!(true), json!(null), json!(" account"), json!("bad\nvalue")] {
-            assert!(core.apply_setting("codebuddyWorkbuddyAccountId", &invalid).is_err());
+        assert_eq!(
+            reopened.settings["codebuddyWorkbuddyAccountId"],
+            "workbuddy:account-a"
+        );
+        for invalid in [
+            json!(true),
+            json!(null),
+            json!(" account"),
+            json!("bad\nvalue"),
+        ] {
+            assert!(core
+                .apply_setting("codebuddyWorkbuddyAccountId", &invalid)
+                .is_err());
         }
-        core.apply_setting("codebuddyWorkbuddyAccountId", &json!("")).unwrap();
+        core.apply_setting("codebuddyWorkbuddyAccountId", &json!(""))
+            .unwrap();
         assert_eq!(core.settings["codebuddyWorkbuddyAccountId"], "");
     }
 
@@ -258,7 +270,9 @@ mod tests {
     fn windows_utf8_bom_preserves_preferences_and_invalid_json_is_reported() {
         let home = tempfile::tempdir().unwrap();
         let mut bytes = vec![0xef, 0xbb, 0xbf];
-        bytes.extend_from_slice(br#"{"settings":{"quotaDisplay":"remaining","clientHooks":true},"providers":{}}"#);
+        bytes.extend_from_slice(
+            br#"{"settings":{"quotaDisplay":"remaining","clientHooks":true},"providers":{}}"#,
+        );
         fs::write(home.path().join("settings.json"), bytes).unwrap();
         let mut core = AgentHudCore::new(vec![], home.path().to_owned());
         assert_eq!(core.settings["quotaDisplay"], "remaining");
@@ -267,7 +281,10 @@ mod tests {
         let saved = fs::read(home.path().join("settings.json")).unwrap();
         assert!(!saved.starts_with(&[0xef, 0xbb, 0xbf]));
         fs::write(home.path().join("settings.json"), b"{broken").unwrap();
-        assert!(core.reload_preferences().unwrap_err().contains("Preferences could not be read"));
+        assert!(core
+            .reload_preferences()
+            .unwrap_err()
+            .contains("Preferences could not be read"));
         assert_eq!(core.settings["quotaDisplay"], "remaining");
     }
 

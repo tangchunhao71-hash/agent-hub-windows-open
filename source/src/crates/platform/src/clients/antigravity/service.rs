@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Shared acquisition of an already-running Antigravity service. Account and
 //! approval adapters share discovery; no app/server is launched or signed in.
 //! Quota reads can acquire the installed Windows CLI for its read-only /usage.
@@ -93,8 +94,13 @@ mod running {
 
     /// Prefer a running CLI's own executable. On Windows, the current user's
     /// fixed installation also supports /usage while both CLI and IDE are shut.
-    pub(super) fn cli_executable(local_app_data: Option<&std::path::Path>) -> Result<Option<String>, String> {
-        Ok(cli_from_or_installed(crate::os::processes()?, local_app_data))
+    pub(super) fn cli_executable(
+        local_app_data: Option<&std::path::Path>,
+    ) -> Result<Option<String>, String> {
+        Ok(cli_from_or_installed(
+            crate::os::processes()?,
+            local_app_data,
+        ))
     }
 
     fn cli_from_or_installed(
@@ -104,15 +110,24 @@ mod running {
         cli_from(processes).or_else(|| {
             let root = local_app_data.filter(|path| path.is_absolute())?;
             let executable = root.join("agy/bin/agy.exe");
-            executable.is_file().then(|| executable.to_str().map(str::to_owned)).flatten()
+            executable
+                .is_file()
+                .then(|| executable.to_str().map(str::to_owned))
+                .flatten()
         })
     }
 
     fn cli_from(processes: Vec<crate::os::ProcessInfo>) -> Option<String> {
         processes.into_iter().find_map(|process| {
             let path = std::path::Path::new(&process.executable);
-            (path.is_absolute() && path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.eq_ignore_ascii_case("agy") || name.eq_ignore_ascii_case("agy.exe")))
-                .then_some(process.executable)
+            (path.is_absolute()
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| {
+                        name.eq_ignore_ascii_case("agy") || name.eq_ignore_ascii_case("agy.exe")
+                    }))
+            .then_some(process.executable)
         })
     }
 
@@ -131,21 +146,36 @@ mod running {
         #[test]
         fn windows_server_and_cli_executable_names_are_discovered() {
             let found = parse_servers(vec![
-                process(1, r"C:\Users\用户\Antigravity\resources\bin\language_server.exe", "server --csrf_token fixture-one"),
-                process(2, r"C:\Apps\Antigravity IDE\resources\app\extensions\antigravity\bin\language_server_windows_x64.exe", "server --csrf_token fixture-two"),
+                process(
+                    1,
+                    r"C:\Users\用户\Antigravity\resources\bin\language_server.exe",
+                    "server --csrf_token fixture-one",
+                ),
+                process(
+                    2,
+                    r"C:\Apps\Antigravity IDE\resources\app\extensions\antigravity\bin\language_server_windows_x64.exe",
+                    "server --csrf_token fixture-two",
+                ),
                 process(3, r"D:\Tools\AGY.EXE", "agy --csrf_token fixture-three"),
-                process(4, r"C:\Other\language_server.exe", "server --csrf_token fixture-four"),
+                process(
+                    4,
+                    r"C:\Other\language_server.exe",
+                    "server --csrf_token fixture-four",
+                ),
             ]);
-            assert_eq!(found.iter().map(|s| s.pid).collect::<Vec<_>>(), [1,2,3]);
+            assert_eq!(found.iter().map(|s| s.pid).collect::<Vec<_>>(), [1, 2, 3]);
         }
         #[test]
         fn windows_cli_fallback_accepts_absolute_exe_only() {
             let root = tempfile::tempdir().unwrap();
             let executable = root.path().join("My Tools/AGY.EXE");
             let path = executable.to_str().unwrap();
-            assert_eq!(cli_from(vec![process(1,path,"agy")]).as_deref(),Some(path));
-            assert!(cli_from(vec![process(1,"agy.exe","agy")]).is_none());
-            assert!(cli_from(vec![process(1,r"C:\cmd.exe","agy.exe")]).is_none());
+            assert_eq!(
+                cli_from(vec![process(1, path, "agy")]).as_deref(),
+                Some(path)
+            );
+            assert!(cli_from(vec![process(1, "agy.exe", "agy")]).is_none());
+            assert!(cli_from(vec![process(1, r"C:\cmd.exe", "agy.exe")]).is_none());
         }
 
         #[test]
@@ -164,7 +194,9 @@ mod running {
         fn installed_windows_cli_requires_an_absolute_existing_file() {
             let root = tempfile::tempdir().unwrap();
             assert!(cli_from_or_installed(vec![], Some(root.path())).is_none());
-            assert!(cli_from_or_installed(vec![], Some(std::path::Path::new("relative"))).is_none());
+            assert!(
+                cli_from_or_installed(vec![], Some(std::path::Path::new("relative"))).is_none()
+            );
             assert!(cli_from_or_installed(vec![], None).is_none());
             std::fs::create_dir_all(root.path().join("agy/bin/agy.exe")).unwrap();
             assert!(cli_from_or_installed(vec![], Some(root.path())).is_none());
@@ -181,11 +213,18 @@ mod running {
             std::fs::write(&running, b"running fixture").unwrap();
             let running = running.to_str().unwrap();
             assert_eq!(
-                cli_from_or_installed(vec![process(1, running, "agy")], Some(root.path())).as_deref(),
+                cli_from_or_installed(vec![process(1, running, "agy")], Some(root.path()))
+                    .as_deref(),
                 Some(running)
             );
             assert_eq!(
-                cli_from_or_installed(vec![process(2, "agy.exe", "agy"), process(3, "cmd.exe", "agy.exe")], Some(root.path())),
+                cli_from_or_installed(
+                    vec![
+                        process(2, "agy.exe", "agy"),
+                        process(3, "cmd.exe", "agy.exe")
+                    ],
+                    Some(root.path())
+                ),
                 installed.to_str().map(str::to_owned)
             );
         }

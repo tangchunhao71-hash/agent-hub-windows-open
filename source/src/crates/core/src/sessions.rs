@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Lightweight paging over complete contribution heads. No source I/O or account
 //! collection is performed here; details decode only the requested checkpoint.
 use super::*;
@@ -350,22 +351,27 @@ impl AgentHudCore {
                 .iter()
                 .map(|log| (log.source.clone(), log.id.clone()))
                 .collect();
-            let mut extra = self.hook_events
-                .extra_sessions(
-                    now,
-                    if scope == "all" {
-                        30
-                    } else if scope == "active" {
-                        1
-                    } else {
-                        7
-                    },
-                    &existing,
-                );
+            let mut extra = self.hook_events.extra_sessions(
+                now,
+                if scope == "all" {
+                    30
+                } else if scope == "active" {
+                    1
+                } else {
+                    7
+                },
+                &existing,
+            );
             let mut known = existing.clone();
-            known.extend(extra.iter().filter_map(|row| Some((row["source"].as_str()?.to_owned(),row["id"].as_str()?.to_owned()))));
-            extra.extend(self.source_activity.extra_sessions(now,&known));
-            extra.into_iter()
+            known.extend(extra.iter().filter_map(|row| {
+                Some((
+                    row["source"].as_str()?.to_owned(),
+                    row["id"].as_str()?.to_owned(),
+                ))
+            }));
+            extra.extend(self.source_activity.extra_sessions(now, &known));
+            extra
+                .into_iter()
                 .filter(|row| {
                     self.enabled
                         .get(row["source"].as_str().unwrap_or(""))
@@ -621,7 +627,7 @@ impl AgentHudCore {
                 .hook_events
                 .extra_sessions(now, 30, &existing)
                 .into_iter()
-                .chain(self.source_activity.extra_sessions(now,&existing))
+                .chain(self.source_activity.extra_sessions(now, &existing))
                 .find(|session| {
                     session["id"] == id
                         && self

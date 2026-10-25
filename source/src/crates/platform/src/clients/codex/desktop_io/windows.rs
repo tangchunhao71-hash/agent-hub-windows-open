@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Codex Desktop's local named pipe, retaining the shared Desktop IPC framing.
 //!
 //! Source: ChatGPT 26.1016.61520, app.asar application-network-startup-BG13czUt.js
@@ -8,13 +9,13 @@
 //! query the connected pipe server's TokenUser, never infer identity from its name.
 use super::{DesktopIpc, IpcError};
 use std::net::Shutdown;
-use tokio::sync::watch;
 use std::{
     io::{self, Read, Write},
     os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle},
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
+use tokio::sync::watch;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::windows::named_pipe::{ClientOptions, NamedPipeClient},
@@ -128,8 +129,12 @@ impl LocalSocket {
     pub fn wait_for_message(&self, timeout: Duration) -> Result<bool, IpcError> {
         let mut cancelled = self.cancel.subscribe();
         self.runtime.block_on(async {
-            if *cancelled.borrow() { return Err(IpcError::Unavailable); }
-            if self.prefetched.get().is_some() { return Ok(true); }
+            if *cancelled.borrow() {
+                return Err(IpcError::Unavailable);
+            }
+            if self.prefetched.get().is_some() {
+                return Ok(true);
+            }
             tokio::select! {
                 biased;
                 _ = cancelled.changed() => Err(IpcError::Unavailable),
@@ -158,16 +163,25 @@ impl LocalSocket {
 
 impl Read for LocalSocket {
     fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
-        if bytes.is_empty() { return Ok(0); }
-        if *self.cancel.borrow() { return Err(io::ErrorKind::ConnectionAborted.into()); }
-        if let Some(byte) = self.prefetched.take() { bytes[0] = byte; return Ok(1); }
+        if bytes.is_empty() {
+            return Ok(0);
+        }
+        if *self.cancel.borrow() {
+            return Err(io::ErrorKind::ConnectionAborted.into());
+        }
+        if let Some(byte) = self.prefetched.take() {
+            bytes[0] = byte;
+            return Ok(1);
+        }
         let remaining = self.remaining();
         if remaining.is_zero() {
             return Err(io::ErrorKind::TimedOut.into());
         }
         let mut cancelled = self.cancel.subscribe();
         self.runtime.block_on(async {
-            if *cancelled.borrow() { return Err(io::ErrorKind::ConnectionAborted.into()); }
+            if *cancelled.borrow() {
+                return Err(io::ErrorKind::ConnectionAborted.into());
+            }
             tokio::select! {
                 biased;
                 _ = cancelled.changed() => Err(io::ErrorKind::ConnectionAborted.into()),
@@ -186,7 +200,9 @@ impl Write for LocalSocket {
         }
         let mut cancelled = self.cancel.subscribe();
         self.runtime.block_on(async {
-            if *cancelled.borrow() { return Err(io::ErrorKind::ConnectionAborted.into()); }
+            if *cancelled.borrow() {
+                return Err(io::ErrorKind::ConnectionAborted.into());
+            }
             tokio::select! {
                 biased;
                 _ = cancelled.changed() => Err(io::ErrorKind::ConnectionAborted.into()),

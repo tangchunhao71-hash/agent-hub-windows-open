@@ -1,9 +1,10 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Grok: the CLI and Grok Bot, two sources.
 pub mod account;
 pub mod activity;
-pub mod identity;
 pub mod bot;
 pub mod cache;
+pub mod identity;
 pub mod transcript;
 mod usage;
 

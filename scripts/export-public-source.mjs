@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -10,14 +11,15 @@ const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 // Explicit source roots; outer docs, local-only, Git history and promotional
 // screenshots/videos are never inputs. Export is a review candidate, not a publish action.
 const roots = ['source/src/', 'source/vendor/tao/', 'source/.cargo/', '.github/workflows/', 'source/integrations/dsh-navigation/', 'docs/release/'];
-const files = new Set(['LICENSE', '.gitignore', '.gitattributes', 'source/LICENSE', 'source/CONTRIBUTING.md',
+const files = new Set(['LICENSE', 'LICENSE-MIT', 'NOTICE', 'LICENSING.md', '.gitignore', '.gitattributes', 'source/LICENSE', 'source/CONTRIBUTING.md',
   'source/Cargo.toml', 'source/Cargo.lock', 'source/package.json',
   'source/pnpm-lock.yaml', 'source/pnpm-workspace.yaml', 'source/tsconfig.base.json', 'source/rustfmt.toml',
   'source/.editorconfig', 'source/.gitattributes', 'source/.gitignore',
   'source/.prettierignore', 'source/.prettierrc.json',
   'source/docs/third-party.md', 'source/docs/dependency-notices.txt', 'source/docs/release-license-supplement.txt', 'source/docs/tao-panel-patch.md',
+  'source/docs/license-map.json', 'source/docs/license-evidence.json', 'source/docs/artwork-provenance.json', 'source/docs/modifications.json',
   'scripts/package-netdisk-delivery.ps1',
-  'scripts/export-public-source.mjs', 'scripts/collect-release-notices.mjs', 'scripts/build-windows.ps1', 'scripts/install-dsh-navigation.ps1', 'scripts/render-orange-bot.mjs', 'scripts/render-orange-bot-four-frames.mjs']);
+  'scripts/export-public-source.mjs', 'scripts/collect-release-notices.mjs', 'scripts/build-windows.ps1', 'scripts/build-macos.sh', 'scripts/package-macos.mjs', 'scripts/package-windows.mjs', 'scripts/signature-report.mjs', 'scripts/windows-signature-report.ps1', 'scripts/zip-windows-delivery.ps1', 'scripts/create-release-artwork.mjs', 'scripts/install-dsh-navigation.ps1', 'scripts/render-orange-bot.mjs', 'scripts/render-orange-bot-four-frames.mjs']);
 const excluded = /(^|\/)(\.git|node_modules|target|dist|\.build|local-only|screenshots|videos|__pycache__)(\/|$)|^source\/vendor\/tao\/\.github\/|(^|\/)\.env(?:\.|$)|\.(?:exe|dll|pdb|sqlite3?|db|jsonl|log)$/i;
 const selected = git('ls-files', '-z').split('\0').filter(p => p &&
   (files.has(p) || roots.some(prefix => p.startsWith(prefix))) && !excluded.test(p));
@@ -45,7 +47,7 @@ writeFileSync(resolve(output, 'README.md'), readFileSync(resolve(root, 'docs/rel
 const manifest = { revision, status: 'LOCAL_REVIEW_CANDIDATE_NOT_RELEASE',
   files: rows.map(({ bytes, ...row }) => ({ ...row, size: bytes.length })),
   product: 'Agent Bot', excludedFeatures: ['local experimental cross-agent delegation', 'legacy client hook and plugin takeover'],
-  pending: ['clean Windows install/upgrade/uninstall/rollback', 'native display and navigation acceptance', 'upstream notice review for packages without separate license files', 'distribution approval'] };
+  pending: ['clean Windows install/upgrade/uninstall/rollback', 'native display and navigation acceptance', 'trusted platform signatures and macOS notarization', 'distribution approval'] };
 writeFileSync(resolve(output, 'SOURCE-MANIFEST.json'), JSON.stringify(manifest, null, 2) + '\n');
 for (const row of rows) {
   if (sha(readFileSync(resolve(output, row.path))) !== row.sha256 ||

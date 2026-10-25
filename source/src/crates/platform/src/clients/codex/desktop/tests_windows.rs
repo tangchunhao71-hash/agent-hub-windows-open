@@ -1,9 +1,14 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 use super::*;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer, ServerOptions};
 
 fn pipe(path: &std::path::Path, first: bool) -> NamedPipeServer {
-    ServerOptions::new().first_pipe_instance(first).reject_remote_clients(true).create(path).unwrap()
+    ServerOptions::new()
+        .first_pipe_instance(first)
+        .reject_remote_clients(true)
+        .create(path)
+        .unwrap()
 }
 async fn read(socket: &mut NamedPipeServer) -> Value {
     let size = socket.read_u32_le().await.unwrap();
@@ -40,18 +45,28 @@ fn follow(observer: &CodexDesktopObserver) {
     observer.update_sessions(&[json!({"id":THREAD,"source":AGENT.id,"state":"running","navigationTarget":{"kind":"codex-thread","id":THREAD}})]);
 }
 fn unique_endpoint() -> PathBuf {
-    PathBuf::from(format!(r"\\.\pipe\agenthud-observer-test-{}", super::super::super::desktop_io::request_id().unwrap()))
+    PathBuf::from(format!(
+        r"\\.\pipe\agenthud-observer-test-{}",
+        super::super::super::desktop_io::request_id().unwrap()
+    ))
 }
 
 #[test]
 fn named_pipe_observer_reply_receipts_and_withdrawal() {
-    for (decision, outcome) in [("always", "confirmed"), ("deny", "confirmed"), ("allow", "uncertain")] {
+    for (decision, outcome) in [
+        ("always", "confirmed"),
+        ("deny", "confirmed"),
+        ("allow", "uncertain"),
+    ] {
         let endpoint = unique_endpoint();
         let server_endpoint = endpoint.clone();
         let (ready_tx, ready_rx) = std::sync::mpsc::channel();
         let (finish_tx, finish_rx) = tokio::sync::oneshot::channel();
         let server = thread::spawn(move || {
-            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
             runtime.block_on(async move {
                 tokio::time::timeout(Duration::from_secs(12), async move {
                     let mut stream = pipe(&server_endpoint, true);
@@ -86,19 +101,46 @@ fn named_pipe_observer_reply_receipts_and_withdrawal() {
         });
         ready_rx.recv_timeout(Duration::from_secs(4)).unwrap();
         let requests = Requests::default();
-        let mut observer = CodexDesktopObserver::start_at_endpoint(endpoint, requests.clone(), Arc::new(|| {})).unwrap();
+        let mut observer =
+            CodexDesktopObserver::start_at_endpoint(endpoint, requests.clone(), Arc::new(|| {}))
+                .unwrap();
         follow(&observer);
-        wait("visible request", || requests.views(crate::hooks::now_ms()).len() == 1);
-        assert!(requests.native_waiting_sessions().get(AGENT.id).is_some_and(|ids| ids.contains(THREAD)));
-        let id = requests.views(crate::hooks::now_ms())[0]["id"].as_str().unwrap().to_owned();
-        requests.answer(&id, &json!({"kind":decision}), crate::hooks::now_ms()).unwrap();
-        wait("delivery receipt", || requests.deliveries(crate::hooks::now_ms()).iter().any(|row| row["id"] == id && row["state"] == outcome));
-        assert!(requests.answer(&id, &json!({"kind":"allow"}), crate::hooks::now_ms()).is_err(), "never retry an answered identity");
+        wait("visible request", || {
+            requests.views(crate::hooks::now_ms()).len() == 1
+        });
+        assert!(requests
+            .native_waiting_sessions()
+            .get(AGENT.id)
+            .is_some_and(|ids| ids.contains(THREAD)));
+        let id = requests.views(crate::hooks::now_ms())[0]["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        requests
+            .answer(&id, &json!({"kind":decision}), crate::hooks::now_ms())
+            .unwrap();
+        wait("delivery receipt", || {
+            requests
+                .deliveries(crate::hooks::now_ms())
+                .iter()
+                .any(|row| row["id"] == id && row["state"] == outcome)
+        });
+        assert!(
+            requests
+                .answer(&id, &json!({"kind":"allow"}), crate::hooks::now_ms())
+                .is_err(),
+            "never retry an answered identity"
+        );
         finish_tx.send(()).unwrap();
-        wait("owner settlement", || observer.shared.state.lock().unwrap().pending.is_empty());
+        wait("owner settlement", || {
+            observer.shared.state.lock().unwrap().pending.is_empty()
+        });
         observer.stop();
         assert!(requests.views(crate::hooks::now_ms()).is_empty());
-        assert!(requests.native_waiting_sessions().get(AGENT.id).is_none_or(|ids| ids.is_empty()));
+        assert!(requests
+            .native_waiting_sessions()
+            .get(AGENT.id)
+            .is_none_or(|ids| ids.is_empty()));
         server.join().unwrap();
     }
 }
@@ -111,7 +153,10 @@ fn named_pipe_observer_stop_interrupts_partial_frame() {
     let (partial_tx, partial_rx) = std::sync::mpsc::channel();
     let (finish_tx, finish_rx) = tokio::sync::oneshot::channel();
     let server = thread::spawn(move || {
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         runtime.block_on(async move {
             tokio::time::timeout(Duration::from_secs(8), async move {
                 let mut stream = pipe(&server_endpoint, true);
@@ -122,16 +167,23 @@ fn named_pipe_observer_stop_interrupts_partial_frame() {
                 stream.write_all(b"{").await.unwrap();
                 partial_tx.send(()).unwrap();
                 finish_rx.await.unwrap();
-            }).await.unwrap();
+            })
+            .await
+            .unwrap();
         });
     });
     ready_rx.recv_timeout(Duration::from_secs(4)).unwrap();
-    let mut observer = CodexDesktopObserver::start_at_endpoint(endpoint, Requests::default(), Arc::new(|| {})).unwrap();
+    let mut observer =
+        CodexDesktopObserver::start_at_endpoint(endpoint, Requests::default(), Arc::new(|| {}))
+            .unwrap();
     follow(&observer);
     partial_rx.recv_timeout(Duration::from_secs(4)).unwrap();
     let began = Instant::now();
     observer.stop();
-    assert!(began.elapsed() < Duration::from_secs(2), "stop must cancel a frame with a 120s read deadline");
+    assert!(
+        began.elapsed() < Duration::from_secs(2),
+        "stop must cancel a frame with a 120s read deadline"
+    );
     assert!(observer.shared.state.lock().unwrap().connection.is_none());
     finish_tx.send(()).unwrap();
     server.join().unwrap();
@@ -144,33 +196,64 @@ fn disconnected_answer_stays_dismissed_until_owner_settles() {
     let mut observer = CodexDesktopObserver {
         shared: Arc::new(Shared {
             active: AtomicBool::new(true),
-            state: Mutex::new(State { reported: HashMap::new(), known: HashMap::new(), pending: HashMap::new(), connection: None, answer_connections: HashMap::new() }),
-            changed: Condvar::new(), requests: requests.clone(), wake: Arc::new(|| {}), endpoint: unique_endpoint(),
+            state: Mutex::new(State {
+                reported: HashMap::new(),
+                known: HashMap::new(),
+                pending: HashMap::new(),
+                connection: None,
+                answer_connections: HashMap::new(),
+            }),
+            changed: Condvar::new(),
+            requests: requests.clone(),
+            wake: Arc::new(|| {}),
+            endpoint: unique_endpoint(),
         }),
         worker: None,
     };
     let state = snapshot(vec![permission("computer-use", json!(["session"]))]);
     observer.shared.reconcile(THREAD, "owner", state.clone());
-    let id = requests.views(crate::hooks::now_ms())[0]["id"].as_str().unwrap().to_owned();
-    requests.answer(&id, &json!({"kind":"allow"}), crate::hooks::now_ms()).unwrap();
+    let id = requests.views(crate::hooks::now_ms())[0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    requests
+        .answer(&id, &json!({"kind":"allow"}), crate::hooks::now_ms())
+        .unwrap();
     observer.shared.forget_connection();
     observer.shared.reconcile(THREAD, "owner", state.clone());
-    assert!(requests.views(crate::hooks::now_ms()).is_empty(), "reconnect must not retry a dismissed request");
+    assert!(
+        requests.views(crate::hooks::now_ms()).is_empty(),
+        "reconnect must not retry a dismissed request"
+    );
     observer.shared.reconcile(THREAD, "owner", snapshot(vec![]));
     observer.shared.reconcile(THREAD, "owner", state);
-    assert_eq!(requests.views(crate::hooks::now_ms()).len(), 1, "observed settlement permits a fresh request");
+    assert_eq!(
+        requests.views(crate::hooks::now_ms()).len(),
+        1,
+        "observed settlement permits a fresh request"
+    );
     observer.stop();
 }
 
 #[test]
 fn named_pipe_command_and_file_permissions_use_exact_desktop_routes() {
-    for (files, decision, outcome) in [(false,"allow","confirmed"),(false,"deny","confirmed"),(false,"allow","uncertain"),(true,"allow","confirmed"),(true,"deny","confirmed"),(true,"allow","uncertain")] {
+    for (files, decision, outcome) in [
+        (false, "allow", "confirmed"),
+        (false, "deny", "confirmed"),
+        (false, "allow", "uncertain"),
+        (true, "allow", "confirmed"),
+        (true, "deny", "confirmed"),
+        (true, "allow", "uncertain"),
+    ] {
         let endpoint = unique_endpoint();
         let server_endpoint = endpoint.clone();
         let (ready_tx, ready_rx) = std::sync::mpsc::channel();
         let (finish_tx, finish_rx) = tokio::sync::oneshot::channel();
         let server = thread::spawn(move || {
-            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
             runtime.block_on(async move {
                 tokio::time::timeout(Duration::from_secs(12), async move {
                     let mut stream = pipe(&server_endpoint, true);
@@ -208,19 +291,50 @@ fn named_pipe_command_and_file_permissions_use_exact_desktop_routes() {
         });
         ready_rx.recv_timeout(Duration::from_secs(4)).unwrap();
         let requests = Requests::default();
-        let mut observer = CodexDesktopObserver::start_at_endpoint(endpoint, requests.clone(), Arc::new(|| {})).unwrap();
+        let mut observer =
+            CodexDesktopObserver::start_at_endpoint(endpoint, requests.clone(), Arc::new(|| {}))
+                .unwrap();
         follow(&observer);
-        wait("command card", || requests.views(crate::hooks::now_ms()).len() == 1);
-        let id = requests.views(crate::hooks::now_ms())[0]["id"].as_str().unwrap().to_owned();
-        assert!(requests.answer(&id, &json!({"kind":"always"}), crate::hooks::now_ms()).is_err());
-        requests.answer(&id, &json!({"kind":decision}), crate::hooks::now_ms()).unwrap();
-        wait("command receipt", || requests.deliveries(crate::hooks::now_ms()).iter().any(|row| row["id"] == id && row["state"] == outcome));
+        wait("command card", || {
+            requests.views(crate::hooks::now_ms()).len() == 1
+        });
+        let id = requests.views(crate::hooks::now_ms())[0]["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        assert!(requests
+            .answer(&id, &json!({"kind":"always"}), crate::hooks::now_ms())
+            .is_err());
+        requests
+            .answer(&id, &json!({"kind":decision}), crate::hooks::now_ms())
+            .unwrap();
+        wait("command receipt", || {
+            requests
+                .deliveries(crate::hooks::now_ms())
+                .iter()
+                .any(|row| row["id"] == id && row["state"] == outcome)
+        });
         observer.shared.forget_connection();
-        observer.shared.reconcile(THREAD, "owner", if files {file_permissions_snapshot()} else {command_snapshot()});
-        assert!(requests.views(crate::hooks::now_ms()).is_empty(), "a reconnect must not replay the one-shot decision");
-        assert!(requests.answer(&id, &json!({"kind":"allow"}), crate::hooks::now_ms()).is_err());
+        observer.shared.reconcile(
+            THREAD,
+            "owner",
+            if files {
+                file_permissions_snapshot()
+            } else {
+                command_snapshot()
+            },
+        );
+        assert!(
+            requests.views(crate::hooks::now_ms()).is_empty(),
+            "a reconnect must not replay the one-shot decision"
+        );
+        assert!(requests
+            .answer(&id, &json!({"kind":"allow"}), crate::hooks::now_ms())
+            .is_err());
         finish_tx.send(()).unwrap();
-        wait("command withdrawal", || observer.shared.state.lock().unwrap().pending.is_empty());
+        wait("command withdrawal", || {
+            observer.shared.state.lock().unwrap().pending.is_empty()
+        });
         observer.stop();
         assert!(requests.views(crate::hooks::now_ms()).is_empty());
         server.join().unwrap();

@@ -1,3 +1,4 @@
+/* Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses. */
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -509,7 +510,7 @@ a:focus-visible {
   position: relative;
   overflow: hidden;
   background:
-    url("./assets/settings-wallpaper.png") center / cover,
+    url("./assets/agent-bot-wallpaper.svg") center / cover,
     #5d565f;
   min-height: 490px;
 }
@@ -1192,7 +1193,7 @@ a:focus-visible {
   line-height: 15px;
 }
 .source-settings-preview {
-  background: url("./assets/settings-wallpaper.png") center / cover;
+  background: url("./assets/agent-bot-wallpaper.svg") center / cover;
   border-radius: 8px;
   overflow: hidden;
 }

@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Settings → Agents → Agent plugins: Agent HUD's Claude Code plugin, which
 //! lets the HUD answer Claude's questions in the session that asked. It is
 //! installed and removed only when the user asks there, with Claude Code's own
@@ -106,7 +107,11 @@ fn install(
 pub(crate) fn repair_on_launch(app: &tauri::AppHandle) {
     // The demo leaves the user's Claude Code alone.
     if app.state::<super::AppState>().demo
-        || app.state::<super::HostOptions>().canonical_executable.is_none() {
+        || app
+            .state::<super::HostOptions>()
+            .canonical_executable
+            .is_none()
+    {
         return;
     }
     let app = app.clone();
@@ -185,7 +190,12 @@ pub async fn native_claude_plugin(
     if window.label() != "main" {
         return Err("The Claude Code plugin is set up in Settings".into());
     }
-    if action != "status" && app.state::<super::HostOptions>().canonical_executable.is_none() {
+    if action != "status"
+        && app
+            .state::<super::HostOptions>()
+            .canonical_executable
+            .is_none()
+    {
         return Err("Agent Bot does not modify the legacy Agent HUD plugin. Client plugin migration is not part of this release.".into());
     }
     tauri::async_runtime::spawn_blocking(move || {

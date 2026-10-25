@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT
 set -euo pipefail
 if [[ "$(uname -s)" != Darwin ]]; then
   echo "A macOS build host is required. This script does not cross-compile." >&2

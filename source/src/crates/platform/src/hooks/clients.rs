@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Explicit installation coordinator. Status is refreshed only at delegation or
 //! a user setting action, never by the five-second snapshot projection.
 use super::{install, observers, InstallContext};
@@ -150,8 +151,10 @@ mod tests {
     fn unavailable_owner_is_reported_without_claiming_hooks_are_installed() {
         let mut clients = Clients::default();
         let context = InstallContext {
-            home: std::path::PathBuf::new(), environment: Default::default(),
-            executable: std::path::PathBuf::new(), canonical_executable: None,
+            home: std::path::PathBuf::new(),
+            environment: Default::default(),
+            executable: std::path::PathBuf::new(),
+            canonical_executable: None,
         };
         let error = clients.delegate(context).unwrap_err();
         let status = clients.status(false, true);

@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Bounded, opt-in Codex <-> CodeBuddy text delegation using existing CLI logins.
 //! The desktop owns grants; a helper cannot grant itself permission or delegate.
 mod adapter;
@@ -11,7 +12,10 @@ use std::{
     collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
-    sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -48,20 +52,35 @@ pub struct Collaboration {
     faulted: AtomicBool,
 }
 
-fn client(value: &str) -> bool { matches!(value, "codex" | "codebuddy") }
+fn client(value: &str) -> bool {
+    matches!(value, "codex" | "codebuddy")
+}
 fn valid_id(value: &str) -> bool {
-    !value.is_empty() && value.len() <= 80
-        && value.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
+    !value.is_empty()
+        && value.len() <= 80
+        && value
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || c == b'-')
 }
 fn valid_session(value: &str) -> bool {
-    !value.is_empty() && value.len() <= 160
-        && value.bytes().all(|c| c.is_ascii_alphanumeric() || b"-_:".contains(&c))
+    !value.is_empty()
+        && value.len() <= 160
+        && value
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || b"-_:".contains(&c))
 }
 fn now() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
-fn owner_key(source: &str, session: &str) -> String { format!("{source}/{session}") }
-fn active(task: &Value) -> bool { matches!(task["state"].as_str(), Some("queued" | "running")) }
+fn owner_key(source: &str, session: &str) -> String {
+    format!("{source}/{session}")
+}
+fn active(task: &Value) -> bool {
+    matches!(task["state"].as_str(), Some("queued" | "running"))
+}
 
 impl Collaboration {
     pub fn from_env() -> Result<Option<Arc<Self>>, String> {
@@ -74,9 +93,13 @@ impl Collaboration {
             Some(file) => PathBuf::from(file),
             None => {
                 let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-                let file = exe.parent().ok_or("Missing application directory")?
+                let file = exe
+                    .parent()
+                    .ok_or("Missing application directory")?
                     .join("collaboration/config.json");
-                if !file.is_file() { return Ok(None); }
+                if !file.is_file() {
+                    return Ok(None);
+                }
                 file
             }
         };
@@ -87,14 +110,24 @@ impl Collaboration {
         let config: Config = serde_json::from_slice(&fs::read(file).map_err(|e| e.to_string())?)
             .map_err(|e| format!("Invalid collaboration configuration: {e}"))?;
         if config.schema_version != 2 || !config.private_directory.is_absolute() {
-            return Err("Collaboration requires schemaVersion 2 and an absolute privateDirectory".into());
+            return Err(
+                "Collaboration requires schemaVersion 2 and an absolute privateDirectory".into(),
+            );
         }
         for (source, endpoint) in &config.endpoints {
-            if !client(source) || !endpoint.program.is_absolute() || !endpoint.program.is_file()
+            if !client(source)
+                || !endpoint.program.is_absolute()
+                || !endpoint.program.is_file()
                 || !endpoint.login_file.is_absolute()
-                || endpoint.script.as_ref().is_some_and(|p| !p.is_absolute() || !p.is_file())
-                || (source == "codebuddy" && endpoint.script.is_none()) {
-                return Err("Invalid CLI endpoint; use verified absolute executable/login paths".into());
+                || endpoint
+                    .script
+                    .as_ref()
+                    .is_some_and(|p| !p.is_absolute() || !p.is_file())
+                || (source == "codebuddy" && endpoint.script.is_none())
+            {
+                return Err(
+                    "Invalid CLI endpoint; use verified absolute executable/login paths".into(),
+                );
             }
         }
         fs::create_dir_all(&config.private_directory).map_err(|e| e.to_string())?;
@@ -102,8 +135,15 @@ impl Collaboration {
         let mut ledger: Ledger = if path.exists() {
             serde_json::from_slice(&fs::read(&path).map_err(|e| e.to_string())?)
                 .map_err(|e| format!("Invalid task ledger; refusing to replace it: {e}"))?
-        } else { Ledger { schema_version: 2, ..Ledger::default() } };
-        if ledger.schema_version != 2 { return Err("Unsupported task ledger".into()); }
+        } else {
+            Ledger {
+                schema_version: 2,
+                ..Ledger::default()
+            }
+        };
+        if ledger.schema_version != 2 {
+            return Err("Unsupported task ledger".into());
+        }
         for task in ledger.tasks.values_mut() {
             if active(task) {
                 task["state"] = json!("deliveryUnknown");
@@ -113,105 +153,197 @@ impl Collaboration {
         // Initial grants only seed a NEW ledger. Reopening cannot undo a UI revocation.
         if !path.exists() {
             for (source, sessions) in &config.initial_sessions {
-                let endpoint = config.endpoints.get(source).ok_or("Initial session endpoint missing")?;
+                let endpoint = config
+                    .endpoints
+                    .get(source)
+                    .ok_or("Initial session endpoint missing")?;
                 let scope = adapter::login_scope(source, &endpoint.login_file)?;
                 for session in sessions {
-                    if !valid_session(session) { return Err("Invalid initial session id".into()); }
-                    ledger.bindings.insert(owner_key(source, session), scope.clone());
+                    if !valid_session(session) {
+                        return Err("Invalid initial session id".into());
+                    }
+                    ledger
+                        .bindings
+                        .insert(owner_key(source, session), scope.clone());
                 }
             }
         }
-        let product = Arc::new(Self { config, ledger: Mutex::new(ledger), host: Mutex::new(None),
-            stopped: AtomicBool::new(false), faulted: AtomicBool::new(false) });
+        let product = Arc::new(Self {
+            config,
+            ledger: Mutex::new(ledger),
+            host: Mutex::new(None),
+            stopped: AtomicBool::new(false),
+            faulted: AtomicBool::new(false),
+        });
         product.mutate(|_| Ok(()))?;
         Ok(product)
     }
 
     // All ledger mutations and durable writes share one lock. A failed write restores
     // memory and disables dispatch, so an unpersisted task can never start.
-    fn mutate<T>(&self, change: impl FnOnce(&mut Ledger) -> Result<T, String>) -> Result<T, String> {
+    fn mutate<T>(
+        &self,
+        change: impl FnOnce(&mut Ledger) -> Result<T, String>,
+    ) -> Result<T, String> {
         let mut ledger = self.ledger.lock().map_err(|_| "Task ledger unavailable")?;
         let previous = ledger.clone();
-        let result = match change(&mut ledger) { Ok(value) => value, Err(e) => { *ledger = previous; return Err(e); } };
+        let result = match change(&mut ledger) {
+            Ok(value) => value,
+            Err(e) => {
+                *ledger = previous;
+                return Err(e);
+            }
+        };
         let save = (|| {
             let pending = self.config.private_directory.join("tasks-v2.pending.json");
-            fs::write(&pending, serde_json::to_vec_pretty(&*ledger).map_err(|e| e.to_string())?)
-                .map_err(|e| e.to_string())?;
+            fs::write(
+                &pending,
+                serde_json::to_vec_pretty(&*ledger).map_err(|e| e.to_string())?,
+            )
+            .map_err(|e| e.to_string())?;
             fs::rename(pending, self.config.private_directory.join("tasks-v2.json"))
                 .map_err(|e| e.to_string())
         })();
         if let Err(error) = save {
             *ledger = previous;
             self.faulted.store(true, Ordering::Release);
-            return Err(format!("Receipt persistence failed; dispatch stopped: {error}"));
+            return Err(format!(
+                "Receipt persistence failed; dispatch stopped: {error}"
+            ));
         }
         Ok(result)
     }
 
     fn scope(&self, source: &str) -> Result<String, String> {
-        let endpoint = self.config.endpoints.get(source).ok_or("CLI endpoint is not configured")?;
+        let endpoint = self
+            .config
+            .endpoints
+            .get(source)
+            .ok_or("CLI endpoint is not configured")?;
         adapter::login_scope(source, &endpoint.login_file)
     }
     fn owner(&self, caller: &Value) -> Result<(String, String), String> {
-        let source = caller["client"].as_str().filter(|s| client(s)).ok_or("Codex or CodeBuddy caller required")?;
-        let session = caller["sessionId"].as_str().filter(|s| valid_session(s)).ok_or("Exact caller session required")?;
+        let source = caller["client"]
+            .as_str()
+            .filter(|s| client(s))
+            .ok_or("Codex or CodeBuddy caller required")?;
+        let session = caller["sessionId"]
+            .as_str()
+            .filter(|s| valid_session(s))
+            .ok_or("Exact caller session required")?;
         let key = owner_key(source, session);
         let scope = self.scope(source)?;
         let ledger = self.ledger.lock().map_err(|_| "Task ledger unavailable")?;
         if ledger.bindings.get(&key) != Some(&scope) {
-            return Err("This session/account is not authorized. Bind the session in Agent Hub settings.".into());
+            return Err(
+                "This session/account is not authorized. Bind the session in Agent Hub settings."
+                    .into(),
+            );
         }
-        if session.starts_with("ah-helper-") || ledger.tasks.values().any(|t| t["helperSessionId"] == session) {
+        if session.starts_with("ah-helper-")
+            || ledger
+                .tasks
+                .values()
+                .any(|t| t["helperSessionId"] == session)
+        {
             return Err("Helpers cannot delegate; maximum delegation depth is one".into());
         }
         Ok((key, scope))
     }
     fn task(&self, id: &str) -> Result<Value, String> {
-        self.ledger.lock().map_err(|_| "Task ledger unavailable")?.tasks.get(id).cloned().ok_or("Unknown task".into())
+        self.ledger
+            .lock()
+            .map_err(|_| "Task ledger unavailable")?
+            .tasks
+            .get(id)
+            .cloned()
+            .ok_or("Unknown task".into())
     }
-    fn finish(&self, id: &str, state: &str, result: Value, session: Option<String>) -> Result<(), String> {
+    fn finish(
+        &self,
+        id: &str,
+        state: &str,
+        result: Value,
+        session: Option<String>,
+    ) -> Result<(), String> {
         self.mutate(|ledger| {
             let task = ledger.tasks.get_mut(id).ok_or("Unknown task")?;
             task["state"] = json!(state);
             task["result"] = result;
             task["finishedAt"] = json!(now());
-            if let Some(session) = session { task["helperSessionId"] = json!(session); }
+            if let Some(session) = session {
+                task["helperSessionId"] = json!(session);
+            }
             Ok(())
         })
     }
     fn scopes_match(&self, task: &Value) -> bool {
-        [ ("source", "ownerScope"), ("target", "helperScope") ].iter().all(|(source, scope)| {
-            task[*source].as_str().and_then(|s| self.scope(s).ok()).is_some_and(|s| task[*scope] == s)
-        })
+        [("source", "ownerScope"), ("target", "helperScope")]
+            .iter()
+            .all(|(source, scope)| {
+                task[*source]
+                    .as_str()
+                    .and_then(|s| self.scope(s).ok())
+                    .is_some_and(|s| task[*scope] == s)
+            })
     }
     fn cancelled(&self, id: &str) -> bool {
-        self.stopped.load(Ordering::Acquire) || self.faulted.load(Ordering::Acquire)
-            || self.task(id).map(|t| t["cancelRequested"] == true).unwrap_or(true)
+        self.stopped.load(Ordering::Acquire)
+            || self.faulted.load(Ordering::Acquire)
+            || self
+                .task(id)
+                .map(|t| t["cancelRequested"] == true)
+                .unwrap_or(true)
     }
     fn execute(&self, id: &str) -> Result<(), String> {
-        if self.cancelled(id) { return Ok(()); }
+        if self.cancelled(id) {
+            return Ok(());
+        }
         let task = self.mutate(|ledger| {
             let task = ledger.tasks.get_mut(id).ok_or("Unknown task")?;
-            if task["state"] != "queued" { return Ok(None); }
+            if task["state"] != "queued" {
+                return Ok(None);
+            }
             task["state"] = json!("running");
             task["startedAt"] = json!(now());
             Ok(Some(task.clone()))
         })?;
-        let Some(task) = task else { return Ok(()); };
+        let Some(task) = task else {
+            return Ok(());
+        };
         if !self.scopes_match(&task) || self.cancelled(id) {
-            return self.finish(id, "failed", json!("Not delivered: login changed or cancelled before delivery"), None);
+            return self.finish(
+                id,
+                "failed",
+                json!("Not delivered: login changed or cancelled before delivery"),
+                None,
+            );
         }
         let target = task["target"].as_str().ok_or("Missing target")?;
-        let endpoint = self.config.endpoints.get(target).ok_or("Missing endpoint")?;
-        let outcome = adapter::execute(target, endpoint, &self.config.private_directory, &task,
-            || self.cancelled(id) || !self.scopes_match(&task));
+        let endpoint = self
+            .config
+            .endpoints
+            .get(target)
+            .ok_or("Missing endpoint")?;
+        let outcome = adapter::execute(
+            target,
+            endpoint,
+            &self.config.private_directory,
+            &task,
+            || self.cancelled(id) || !self.scopes_match(&task),
+        );
         self.finish(id, outcome.state, json!(outcome.message), outcome.session)
     }
     fn cancel(&self, id: &str) -> Result<Value, String> {
         self.mutate(|ledger| {
             let task = ledger.tasks.get_mut(id).ok_or("Unknown task")?;
-            if task["state"] == "queued" { task["state"] = json!("cancelled"); task["finishedAt"] = json!(now()); }
-            if task["state"] == "running" { task["cancelRequested"] = json!(true); }
+            if task["state"] == "queued" {
+                task["state"] = json!("cancelled");
+                task["finishedAt"] = json!(now());
+            }
+            if task["state"] == "running" {
+                task["cancelRequested"] = json!(true);
+            }
             Ok(task.clone())
         })
     }
@@ -219,29 +351,55 @@ impl Collaboration {
         let (owner, owner_scope) = self.owner(&params["caller"])?;
         let name = params["name"].as_str().ok_or("Missing tool name")?;
         if name == "collaboration_list" {
-            let tasks: Vec<Value> = self.ledger.lock().map_err(|_| "Task ledger unavailable")?.tasks.values()
-                .filter(|t| t["owner"] == owner && t["ownerScope"] == owner_scope).cloned().collect();
+            let tasks: Vec<Value> = self
+                .ledger
+                .lock()
+                .map_err(|_| "Task ledger unavailable")?
+                .tasks
+                .values()
+                .filter(|t| t["owner"] == owner && t["ownerScope"] == owner_scope)
+                .cloned()
+                .collect();
             return Ok(json!({"tasks":tasks}));
         }
         let args = &params["arguments"];
-        let id = args["taskId"].as_str().filter(|s| valid_id(s)).ok_or("taskId must be 1-80 ASCII letters/digits/hyphens")?;
+        let id = args["taskId"]
+            .as_str()
+            .filter(|s| valid_id(s))
+            .ok_or("taskId must be 1-80 ASCII letters/digits/hyphens")?;
         if let Ok(previous) = self.task(id) {
-            if previous["owner"] != owner || previous["ownerScope"] != owner_scope { return Err("Task belongs to another session/account".into()); }
+            if previous["owner"] != owner || previous["ownerScope"] != owner_scope {
+                return Err("Task belongs to another session/account".into());
+            }
         }
         match name {
             "collaboration_submit" => {
-                let source = params["caller"]["client"].as_str().ok_or("Missing client")?;
-                let target = args["target"].as_str().filter(|s| client(s) && *s != source).ok_or("Target must be the other agent: codex or codebuddy")?;
-                let prompt = args["prompt"].as_str().filter(|s| !s.trim().is_empty() && s.len() <= 8192).ok_or("Prompt must be 1-8192 UTF-8 bytes")?;
+                let source = params["caller"]["client"]
+                    .as_str()
+                    .ok_or("Missing client")?;
+                let target = args["target"]
+                    .as_str()
+                    .filter(|s| client(s) && *s != source)
+                    .ok_or("Target must be the other agent: codex or codebuddy")?;
+                let prompt = args["prompt"]
+                    .as_str()
+                    .filter(|s| !s.trim().is_empty() && s.len() <= 8192)
+                    .ok_or("Prompt must be 1-8192 UTF-8 bytes")?;
                 if args.get("parentTaskId").is_some() || args.get("depth").is_some() {
                     return Err("Nested delegation is disabled".into());
                 }
                 // Duplicates return the SAME terminal receipt, even if the helper logged out.
                 if let Ok(previous) = self.task(id) {
-                    if previous["prompt"] != prompt || previous["target"] != target { return Err("Task ID is already bound to different content or target".into()); }
+                    if previous["prompt"] != prompt || previous["target"] != target {
+                        return Err(
+                            "Task ID is already bound to different content or target".into()
+                        );
+                    }
                     return Ok(previous);
                 }
-                if self.stopped.load(Ordering::Acquire) || self.faulted.load(Ordering::Acquire) { return Err("Dispatch is stopped".into()); }
+                if self.stopped.load(Ordering::Acquire) || self.faulted.load(Ordering::Acquire) {
+                    return Err("Dispatch is stopped".into());
+                }
                 let helper_scope = self.scope(target)?;
                 self.mutate(|ledger| {
                     if ledger.tasks.contains_key(id) { return Err("Concurrent task submission; read the existing receipt".into()); }
@@ -261,33 +419,63 @@ impl Collaboration {
     }
     fn overview(&self) -> Result<Value, String> {
         let ledger = self.ledger.lock().map_err(|_| "Task ledger unavailable")?;
-        let endpoints: Vec<Value> = self.config.endpoints.keys().map(|source| match self.scope(source) {
-            Ok(_) => json!({"id":source,"ready":true,"authentication":"existing-login"}),
-            Err(note) => json!({"id":source,"ready":false,"note":note}),
-        }).collect();
+        let endpoints: Vec<Value> = self
+            .config
+            .endpoints
+            .keys()
+            .map(|source| match self.scope(source) {
+                Ok(_) => json!({"id":source,"ready":true,"authentication":"existing-login"}),
+                Err(note) => json!({"id":source,"ready":false,"note":note}),
+            })
+            .collect();
         let bindings: Vec<Value> = ledger.bindings.iter().map(|(key, scope)| {
             let (source, session) = key.split_once('/').unwrap_or(("", ""));
             json!({"client":source,"sessionId":session,"valid":self.scope(source).ok().as_ref()==Some(scope)})
         }).collect();
-        Ok(json!({"enabled":!self.stopped.load(Ordering::Acquire)&&!self.faulted.load(Ordering::Acquire),
-            "endpoints":endpoints,"bindings":bindings,"tasks":ledger.tasks.values().collect::<Vec<_>>(),"maxDepth":1}))
+        Ok(
+            json!({"enabled":!self.stopped.load(Ordering::Acquire)&&!self.faulted.load(Ordering::Acquire),
+            "endpoints":endpoints,"bindings":bindings,"tasks":ledger.tasks.values().collect::<Vec<_>>(),"maxDepth":1}),
+        )
     }
     // Only the native Settings route reaches these methods; the MCP channel permits
     // host_tools / host_tool only. Binding always requires an explicit desktop action.
     fn bind(&self, params: &Value) -> Result<Value, String> {
-        let source = params["client"].as_str().filter(|s| client(s)).ok_or("Invalid client")?;
-        let session = params["sessionId"].as_str().filter(|s| valid_session(s) && !s.starts_with("ah-helper-")).ok_or("Invalid main session")?;
+        let source = params["client"]
+            .as_str()
+            .filter(|s| client(s))
+            .ok_or("Invalid client")?;
+        let session = params["sessionId"]
+            .as_str()
+            .filter(|s| valid_session(s) && !s.starts_with("ah-helper-"))
+            .ok_or("Invalid main session")?;
         let key = owner_key(source, session);
-        let enabled = params["enabled"].as_bool().ok_or("enabled must be boolean")?;
-        let scope = if enabled { Some(self.scope(source)?) } else { None };
+        let enabled = params["enabled"]
+            .as_bool()
+            .ok_or("enabled must be boolean")?;
+        let scope = if enabled {
+            Some(self.scope(source)?)
+        } else {
+            None
+        };
         self.mutate(|ledger| {
-            if ledger.tasks.values().any(|t| t["helperSessionId"] == session) { return Err("A helper cannot be a dispatching session".into()); }
-            if let Some(scope) = scope { ledger.bindings.insert(key.clone(), scope); }
-            else {
+            if ledger
+                .tasks
+                .values()
+                .any(|t| t["helperSessionId"] == session)
+            {
+                return Err("A helper cannot be a dispatching session".into());
+            }
+            if let Some(scope) = scope {
+                ledger.bindings.insert(key.clone(), scope);
+            } else {
                 ledger.bindings.remove(&key);
                 for task in ledger.tasks.values_mut().filter(|t| t["owner"] == key) {
-                    if task["state"] == "queued" { task["state"] = json!("cancelled"); }
-                    if task["state"] == "running" { task["cancelRequested"] = json!(true); }
+                    if task["state"] == "queued" {
+                        task["state"] = json!("cancelled");
+                    }
+                    if task["state"] == "running" {
+                        task["cancelRequested"] = json!(true);
+                    }
                 }
             }
             Ok(())
@@ -298,12 +486,18 @@ impl Collaboration {
         let owner = Arc::clone(self);
         std::thread::spawn(move || {
             while !owner.stopped.load(Ordering::Acquire) && !owner.faulted.load(Ordering::Acquire) {
-                let id = owner.ledger.lock().ok().and_then(|ledger| ledger.tasks.iter()
-                    .filter(|(_, t)| t["state"] == "queued")
-                    .min_by_key(|(_, t)| t["sequence"].as_u64().unwrap_or(u64::MAX))
-                    .map(|(id, _)| id.clone()));
+                let id = owner.ledger.lock().ok().and_then(|ledger| {
+                    ledger
+                        .tasks
+                        .iter()
+                        .filter(|(_, t)| t["state"] == "queued")
+                        .min_by_key(|(_, t)| t["sequence"].as_u64().unwrap_or(u64::MAX))
+                        .map(|(id, _)| id.clone())
+                });
                 if let Some(id) = id {
-                    if let Err(error) = owner.execute(&id) { let _ = owner.finish(&id, "deliveryUnknown", json!(error), None); }
+                    if let Err(error) = owner.execute(&id) {
+                        let _ = owner.finish(&id, "deliveryUnknown", json!(error), None);
+                    }
                 }
                 std::thread::sleep(Duration::from_millis(100));
             }
@@ -312,8 +506,13 @@ impl Collaboration {
 }
 
 impl ProductExtension for Collaboration {
-    fn start(&self, host: HostContext) -> Result<(), String> { *self.host.lock().map_err(|_| "Host unavailable")? = Some(host); Ok(()) }
-    fn host_tools_on(&self) -> bool { true }
+    fn start(&self, host: HostContext) -> Result<(), String> {
+        *self.host.lock().map_err(|_| "Host unavailable")? = Some(host);
+        Ok(())
+    }
+    fn host_tools_on(&self) -> bool {
+        true
+    }
     fn request(&self, method: &str, params: Value) -> Result<Value, String> {
         match method {
             "host_tools" => Ok(json!({"tools":[
@@ -332,5 +531,7 @@ impl ProductExtension for Collaboration {
             _ => Err("Unknown collaboration method".into()),
         }
     }
-    fn stop(&self) { self.stopped.store(true, Ordering::Release); }
+    fn stop(&self) {
+        self.stopped.store(true, Ordering::Release);
+    }
 }

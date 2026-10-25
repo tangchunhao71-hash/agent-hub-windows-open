@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Ways back to a session: the desktop app's index, hook origins and the
 //! session's log, and Claude Code's background jobs.
 use crate::AgentHudCore;
@@ -89,20 +90,33 @@ fn deepseek_transcripts_project_exact_navigation_in_snapshot_list_and_detail() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path().join(".dsh/sessions");
     let path = root.join("sess_abc/session.jsonl");
-    write(&path, json!({"type":"session","version":4,"id":"sess_abc","cwd":"/work","createdAt":Utc::now().to_rfc3339()}));
-    let mut lines=fs::read(&path).unwrap(); lines.push(b'\n'); fs::write(&path,lines).unwrap();
+    write(
+        &path,
+        json!({"type":"session","version":4,"id":"sess_abc","cwd":"/work","createdAt":Utc::now().to_rfc3339()}),
+    );
+    let mut lines = fs::read(&path).unwrap();
+    lines.push(b'\n');
+    fs::write(&path, lines).unwrap();
     let mut core = AgentHudCore::new(vec![], temp.path().join("app"));
     core.provider_roots = vec![(root, "deepseek")];
     let expected = json!({"kind":"deepseek-session","id":"sess_abc"});
-    assert_eq!(target(&mut core,"deepseek:sess_abc"),expected);
-    let list=core.request("sessions",json!({"source":"deepseek"})).unwrap();
-    assert_eq!(list["items"][0]["navigationTarget"],expected);
-    let detail=core.request("session_detail",json!({"id":"deepseek:sess_abc"})).unwrap();
-    assert_eq!(detail["session"]["navigationTarget"],expected);
+    assert_eq!(target(&mut core, "deepseek:sess_abc"), expected);
+    let list = core
+        .request("sessions", json!({"source":"deepseek"}))
+        .unwrap();
+    assert_eq!(list["items"][0]["navigationTarget"], expected);
+    let detail = core
+        .request("session_detail", json!({"id":"deepseek:sess_abc"}))
+        .unwrap();
+    assert_eq!(detail["session"]["navigationTarget"], expected);
     drop(core);
-    let mut reopened=AgentHudCore::new(vec![],temp.path().join("app"));
-    reopened.provider_roots=vec![(temp.path().join(".dsh/sessions"),"deepseek")];
-    assert_eq!(target(&mut reopened,"deepseek:sess_abc"),expected,"cached log heads must keep the target");
+    let mut reopened = AgentHudCore::new(vec![], temp.path().join("app"));
+    reopened.provider_roots = vec![(temp.path().join(".dsh/sessions"), "deepseek")];
+    assert_eq!(
+        target(&mut reopened, "deepseek:sess_abc"),
+        expected,
+        "cached log heads must keep the target"
+    );
 }
 
 #[test]

@@ -1,13 +1,15 @@
+// SPDX-License-Identifier: MIT
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, copyFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { sourceSnapshot } from '../source/src/tooling/build-provenance.mjs';
+import { signatureReport } from './signature-report.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-const notices = ['LICENSE', 'THIRD_PARTY.md', 'DEPENDENCY_NOTICES.txt', 'RELEASE_LICENSE_SUPPLEMENT.txt', 'THIRD_PARTY_NOTICES.txt', 'LobeIcons-LICENSE.txt'];
+const notices = ['LICENSE', 'LICENSE-MIT', 'NOTICE', 'LICENSING.md', 'LICENSE_MAP.json', 'TERMS.md', 'PRIVACY.md', 'THIRD_PARTY.md', 'DEPENDENCY_NOTICES.txt', 'RELEASE_LICENSE_SUPPLEMENT.txt', 'THIRD_PARTY_NOTICES.txt', 'LobeIcons-LICENSE.txt'];
 export function verifyBuildArtifact(bytes, path, artifacts) {
   const record = artifacts?.find(row => row.path === path);
   if (!record || record.sha256 !== hash(bytes) || record.bytes !== bytes.length)
@@ -74,6 +76,9 @@ export function packageMac(receiptFile) {
   for (const name of notices)
     if (!readFileSync(join(app, 'Contents/Resources', name)).length) throw Error('Missing license: ' + name);
   const inputs = appFiles(app);
+  const signature = signatureReport(app);
+  if (process.env.AGENTBOT_REQUIRE_TRUSTED_SIGNATURE === '1' && (!signature.trusted || !signature.notarized))
+    throw Error('Trusted Developer ID signature and stapled notarization are required');
   const parent = join(root, 'local-only/macos-delivery');
   mkdirSync(parent, { recursive: true });
   const label = 'Agent-Bot-' + version + '-macos-' + arch + '-review';
@@ -88,8 +93,9 @@ export function packageMac(receiptFile) {
     copyFileSync(join(app, 'Contents/Resources', name), join(stage, name));
   const provenance = {
     product: 'Agent Bot', version, platform: 'macos', architecture: arch,
-    status: 'LOCAL_REVIEW_CANDIDATE', trustedDeveloperSignatureVerified: false,
-    notarizationVerified: false, nativeInstallationTested: false,
+    status: 'LOCAL_REVIEW_CANDIDATE', trustedDeveloperSignatureVerified: signature.trusted,
+    notarizationVerified: signature.notarized, nativeInstallationTested: false,
+    signature,
     source: { commit: now.head, dirty: now.dirty, inputSha256: now.inputSha256 },
     buildReceiptSha256: hash(readFileSync(resolve(receiptFile))),
     bundleFiles: inputs,

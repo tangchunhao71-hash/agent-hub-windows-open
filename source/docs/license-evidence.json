@@ -1,0 +1,13 @@
+{
+  "package": "react-remove-scroll-bar",
+  "version": "2.3.7",
+  "license": "MIT",
+  "author": "Anton Korzunov",
+  "registry": "https://registry.npmjs.org/react-remove-scroll-bar/2.3.7",
+  "upstreamCommit": "29e9fcd1eecf7d3b77a767941c4a57fe461fc1e4",
+  "upstreamPackageBlob": "ca37f53a5e895e8237b4479e4165ab9518489c9a",
+  "tarballIntegrity": "sha512-UzA0npskGFA2bUqwWsSRJscuQEt7zyfVtMpCtBl/lk+k/ky6lzYImEks9jwgxTDe/B0tb5hyrYgbQv/JQaHjDw==",
+  "separateLicenseFile": false,
+  "noticeMethod": "Standard MIT text reproduced from explicit version-matched publisher declaration and author attribution; not a fetched LICENSE file.",
+  "supersedesUnverifiableVersion": "2.3.8"
+}

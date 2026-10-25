@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -198,33 +199,46 @@ test("pnpm CLI in a spaced path uses node argv rather than a shell command", () 
   assert.equal(plan.commands[0].shell, false);
 });
 
-test(
-  "Windows npm pnpm.cmd shim is resolved to its Node CLI and never executed",
-  { skip: process.platform !== "win32" },
-  () => {
-    const f = fixture(),
-      commandRoot = join(f.repo, "pnpm tools 中文 path");
-    const cli = join(commandRoot, "node_modules/pnpm/bin/pnpm.cjs");
-    mkdirSync(dirname(cli), { recursive: true });
-    writeFileSync(join(commandRoot, "pnpm.cmd"), "@exit /b 91\r\n");
-    writeFileSync(cli, "console.log(JSON.stringify(process.argv.slice(2)))");
-    const env = {
-      ...process.env,
-      PATH: commandRoot + ";" + join(process.env.SystemRoot, "System32"),
-    };
-    const selected = pnpmCommand(env, "win32");
-    assert.equal(selected.command, process.execPath);
-    assert.equal(selected.shell, false);
-    assert.equal(selected.prefix[0], cli);
-    const output = spawnSync(
-      selected.command,
-      [...selected.prefix, "--version"],
-      { env, encoding: "utf8", shell: false, windowsHide: true },
-    );
-    assert.equal(output.status, 0);
-    assert.deepEqual(JSON.parse(output.stdout), ["--version"]);
-  },
-);
+test("Windows npm pnpm.cmd shim is resolved to its Node CLI and never executed", () => {
+  const f = fixture(),
+    commandRoot = join(f.repo, "pnpm tools 中文 path");
+  const cli = join(commandRoot, "node_modules/pnpm/bin/pnpm.cjs");
+  mkdirSync(dirname(cli), { recursive: true });
+  writeFileSync(join(commandRoot, "pnpm.cmd"), "@exit /b 91\r\n");
+  writeFileSync(cli, "console.log(JSON.stringify(process.argv.slice(2)))");
+  const env = {
+    ...process.env,
+    PATH: commandRoot,
+  };
+  const selected = pnpmCommand(env, "win32");
+  assert.equal(selected.command, process.execPath);
+  assert.equal(selected.shell, false);
+  assert.equal(selected.prefix[0], cli);
+  const output = spawnSync(
+    selected.command,
+    [...selected.prefix, "--version"],
+    { env, encoding: "utf8", shell: false, windowsHide: true },
+  );
+  assert.equal(output.status, 0);
+  assert.deepEqual(JSON.parse(output.stdout), ["--version"]);
+});
+
+test("Windows npm .bin shims resolve Unicode paths without executing the shim", () => {
+  const f = fixture();
+  const directory = join(f.repo, "npm layout 中文", "node_modules", ".bin");
+  const cli = resolve(directory, "../pnpm/bin/pnpm.cjs");
+  mkdirSync(directory, { recursive: true });
+  mkdirSync(dirname(cli), { recursive: true });
+  writeFileSync(join(directory, "pnpm.cmd"), "@exit /b 91\r\n");
+  writeFileSync(cli, "console.log('resolved-cli')");
+  const selected = pnpmCommand({ Path: directory }, "win32");
+  assert.equal(selected.command, process.execPath);
+  const result = spawnSync(selected.command, selected.prefix, {
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout.trim(), "resolved-cli");
+});
 
 test("resource packaging validates reuse before invoking Cargo", () => {
   const f = fixture();

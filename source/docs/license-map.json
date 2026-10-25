@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "defaultLicense": "Apache-2.0",
+  "mitFiles": [
+    {
+      "license": "MIT",
+      "path": "scripts/build-macos.sh"
+    },
+    {
+      "license": "MIT",
+      "path": "scripts/package-macos.mjs"
+    },
+    {
+      "license": "MIT",
+      "path": "scripts/package-windows.mjs"
+    },
+    {
+      "license": "MIT",
+      "path": "scripts/signature-report.mjs"
+    },
+    {
+      "license": "MIT",
+      "path": "scripts/windows-signature-report.ps1"
+    },
+    {
+      "license": "MIT",
+      "path": "scripts/zip-windows-delivery.ps1"
+    },
+    {
+      "license": "MIT",
+      "path": "scripts/create-release-artwork.mjs"
+    },
+    {
+      "license": "MIT",
+      "path": "source/src/tooling/test/macos-delivery.test.mjs"
+    },
+    {
+      "license": "MIT",
+      "path": "source/src/tooling/test/signature-policy.test.mjs"
+    },
+    {
+      "license": "MIT",
+      "path": ".github/workflows/macos-delivery.yml"
+    }
+  ],
+  "mitArtwork": [
+    "source/src/packages/app/src/assets/agent-bot-icon.svg",
+    "source/src/packages/app/src/assets/agent-bot-icon.png",
+    "source/src/packages/ui/src/assets/agent-bot-wallpaper.svg",
+    "source/src/apps/desktop/src-tauri/icons/agent-bot/icon.png",
+    "source/src/apps/desktop/src-tauri/icons/agent-bot/icon.ico",
+    "source/src/apps/desktop/src-tauri/icons/agent-bot/icon.icns"
+  ],
+  "thirdPartyNotRelicensed": true
+}

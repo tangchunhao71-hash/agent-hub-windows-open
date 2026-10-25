@@ -1,5 +1,10 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 use super::*;
-use std::{fs, io::{Read, Write}, os::unix::net::{UnixListener, UnixStream}};
+use std::{
+    fs,
+    io::{Read, Write},
+    os::unix::net::{UnixListener, UnixStream},
+};
 fn read(socket: &mut UnixStream) -> Value {
     let mut size = [0; 4];
     socket.read_exact(&mut size).unwrap();
