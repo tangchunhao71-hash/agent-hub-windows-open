@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Native HUD pointer polling, hit-testing, cursor pass-through, and text-focus leases.
 use std::{
     sync::{atomic::Ordering, Arc},
@@ -380,6 +381,75 @@ pub(super) fn publish_pointer(
     }
 }
 
+pub(super) fn pointer_outside(
+    app: &tauri::AppHandle,
+    window: &tauri::WebviewWindow,
+    regions: &[InteractiveRegion],
+    geometry: Option<&HudGeometry>,
+) -> Result<bool, String> {
+    if regions.is_empty() {
+        return Ok(true);
+    }
+    Ok(!region_contains(
+        regions,
+        pointer_in_viewport(app, window, geometry)?,
+    ))
+}
+
+fn pointer_in_viewport(
+    app: &tauri::AppHandle,
+    window: &tauri::WebviewWindow,
+    geometry: Option<&HudGeometry>,
+) -> Result<Point, String> {
+    let pointer = global_pointer(app)?;
+    if let Some(geometry) = geometry {
+        // configure() records the actual native content rectangle, including every
+        // drag preview and constrained placement. Keep the same coordinate planes:
+        // uniform global points on macOS; physical pixels / selected DPI elsewhere.
+        let units = global_units_per_point(geometry.scale_factor);
+        return Ok(Point {
+            x: pointer.x / units - geometry.canvas.x,
+            y: pointer.y / units - geometry.canvas.y,
+        });
+    }
+    // Configuration/rollback hit tests run before the new canvas readback is stored.
+    // Their infrequent checks must use the live native frame instead of old geometry.
+    let position = window.inner_position().map_err(|error| error.to_string())?;
+    let scale = window.scale_factor().map_err(|error| error.to_string())?;
+    if !scale.is_finite() || scale <= 0.0 {
+        return Err("The HUD window reported an invalid scale".into());
+    }
+    let divisor = if host::GLOBAL_POINTS { scale } else { 1.0 };
+    let units = global_units_per_point(scale);
+    let x = (pointer.x - f64::from(position.x) / divisor) / units;
+    let y = (pointer.y - f64::from(position.y) / divisor) / units;
+    Ok(Point { x, y })
+}
+
+fn region_contains(regions: &[InteractiveRegion], point: Point) -> bool {
+    regions.iter().any(|region| {
+        point.x >= region.x
+            && point.y >= region.y
+            && point.x < region.x + region.width
+            && point.y < region.y + region.height
+    })
+}
+
+pub(super) fn apply_ignore_cursor(
+    window: &tauri::WebviewWindow,
+    state: &mut HudState,
+    ignored: bool,
+    force: bool,
+) -> Result<(), String> {
+    if force || state.last_ignore_cursor != Some(ignored) {
+        window
+            .set_ignore_cursor_events(ignored)
+            .map_err(|error| error.to_string())?;
+        state.last_ignore_cursor = Some(ignored);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod pet_pointer_tests {
     use super::*;
@@ -459,73 +529,4 @@ mod pet_pointer_tests {
         assert_eq!(pointer.buttons, Some(3));
         assert_eq!(pointer.alt_key, Some(true));
     }
-}
-
-pub(super) fn pointer_outside(
-    app: &tauri::AppHandle,
-    window: &tauri::WebviewWindow,
-    regions: &[InteractiveRegion],
-    geometry: Option<&HudGeometry>,
-) -> Result<bool, String> {
-    if regions.is_empty() {
-        return Ok(true);
-    }
-    Ok(!region_contains(
-        regions,
-        pointer_in_viewport(app, window, geometry)?,
-    ))
-}
-
-fn pointer_in_viewport(
-    app: &tauri::AppHandle,
-    window: &tauri::WebviewWindow,
-    geometry: Option<&HudGeometry>,
-) -> Result<Point, String> {
-    let pointer = global_pointer(app)?;
-    if let Some(geometry) = geometry {
-        // configure() records the actual native content rectangle, including every
-        // drag preview and constrained placement. Keep the same coordinate planes:
-        // uniform global points on macOS; physical pixels / selected DPI elsewhere.
-        let units = global_units_per_point(geometry.scale_factor);
-        return Ok(Point {
-            x: pointer.x / units - geometry.canvas.x,
-            y: pointer.y / units - geometry.canvas.y,
-        });
-    }
-    // Configuration/rollback hit tests run before the new canvas readback is stored.
-    // Their infrequent checks must use the live native frame instead of old geometry.
-    let position = window.inner_position().map_err(|error| error.to_string())?;
-    let scale = window.scale_factor().map_err(|error| error.to_string())?;
-    if !scale.is_finite() || scale <= 0.0 {
-        return Err("The HUD window reported an invalid scale".into());
-    }
-    let divisor = if host::GLOBAL_POINTS { scale } else { 1.0 };
-    let units = global_units_per_point(scale);
-    let x = (pointer.x - f64::from(position.x) / divisor) / units;
-    let y = (pointer.y - f64::from(position.y) / divisor) / units;
-    Ok(Point { x, y })
-}
-
-fn region_contains(regions: &[InteractiveRegion], point: Point) -> bool {
-    regions.iter().any(|region| {
-        point.x >= region.x
-            && point.y >= region.y
-            && point.x < region.x + region.width
-            && point.y < region.y + region.height
-    })
-}
-
-pub(super) fn apply_ignore_cursor(
-    window: &tauri::WebviewWindow,
-    state: &mut HudState,
-    ignored: bool,
-    force: bool,
-) -> Result<(), String> {
-    if force || state.last_ignore_cursor != Some(ignored) {
-        window
-            .set_ignore_cursor_events(ignored)
-            .map_err(|error| error.to_string())?;
-        state.last_ignore_cursor = Some(ignored);
-    }
-    Ok(())
 }

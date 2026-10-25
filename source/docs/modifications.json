@@ -64,6 +64,7 @@
     "source/src/crates/host/src/collaboration/process_windows.rs",
     "source/src/crates/host/src/collaboration/tests.rs",
     "source/src/crates/host/src/completion_navigation_tests.rs",
+    "source/src/crates/host/src/hud/input.rs",
     "source/src/crates/host/src/hud/plans.rs",
     "source/src/crates/host/src/lib.rs",
     "source/src/crates/host/src/manual_release.rs",
