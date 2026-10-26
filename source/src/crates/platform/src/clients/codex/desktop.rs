@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Public native approvals/questions only. This observer shares generic Desktop
 //! framing with other users, but never starts/resumes a conversation or engine.
 #[cfg(unix)]
@@ -64,7 +65,11 @@ impl CodexDesktopObserver {
         }
         Self::start_at_endpoint(endpoint(&data_directory), requests, wake)
     }
-    fn start_at_endpoint(endpoint: PathBuf, requests: Requests, wake: Wake) -> Result<Self, String> {
+    fn start_at_endpoint(
+        endpoint: PathBuf,
+        requests: Requests,
+        wake: Wake,
+    ) -> Result<Self, String> {
         let shared = Arc::new(Shared {
             active: AtomicBool::new(true),
             state: Mutex::new(State {
@@ -405,8 +410,7 @@ impl Shared {
         if response.is_null() {
             return Err(ReplyFailure::Cancelled);
         }
-        let mut connection =
-            DesktopIpc::connect(&self.endpoint, Duration::from_secs(3))?;
+        let mut connection = DesktopIpc::connect(&self.endpoint, Duration::from_secs(3))?;
         {
             let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
             if !self.active.load(Ordering::Acquire) {
@@ -442,7 +446,10 @@ impl Shared {
         if discovery["handledByClientId"] != item.owner {
             return Err(IpcError::Unavailable.into());
         }
-        let params = if matches!(method, pending::ELICITATION_METHOD | pending::PERMISSIONS_METHOD) {
+        let params = if matches!(
+            method,
+            pending::ELICITATION_METHOD | pending::PERMISSIONS_METHOD
+        ) {
             serde_json::json!({"conversationId":item.thread,"requestId":item.request_id,"response":response})
         } else if method == pending::COMMAND_METHOD {
             serde_json::json!({"conversationId":item.thread,"requestId":item.request_id,"decision":response})
@@ -497,7 +504,10 @@ impl Shared {
                 "Desktop reply identity did not match",
             )));
         }
-        if matches!(method, pending::ELICITATION_METHOD | pending::COMMAND_METHOD | pending::PERMISSIONS_METHOD) {
+        if matches!(
+            method,
+            pending::ELICITATION_METHOD | pending::COMMAND_METHOD | pending::PERMISSIONS_METHOD
+        ) {
             if receipt["result"]["result"]["ok"] != true {
                 return Err(ReplyFailure::Uncertain(l10n::text(
                     "Codex Desktop 没有确认这个审批",

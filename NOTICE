@@ -1,0 +1,18 @@
+Agent Bot
+Based on Agent HUD / agent-hud-open by jazzenchen and its contributors.
+Upstream: https://github.com/jazzenchen/agent-hud-open
+Upstream code remains under Apache License 2.0; see LICENSE.
+
+Agent Bot changes include Windows adaptation, client activity/completion
+presentation, independent product identity, original orange Bot artwork,
+manual delivery workflows, and macOS packaging. Source history and
+docs/release/CHANGELOG.md identify the changes.
+
+Independently authored files explicitly marked SPDX-License-Identifier: MIT
+are available under LICENSE-MIT. No third-party work is relicensed by this notice.
+
+Provider names and marks identify the clients being displayed. Agent Bot is
+an independent integration and is not endorsed by those providers.
+Third-party copyright and license notices are retained in the accompanying
+THIRD_PARTY.md, DEPENDENCY_NOTICES.txt, RELEASE_LICENSE_SUPPLEMENT.txt,
+THIRD_PARTY_NOTICES.txt and LobeIcons-LICENSE.txt.

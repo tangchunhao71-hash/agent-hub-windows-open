@@ -1,6 +1,6 @@
 [package]
 name = "agent-hud-next"
-version = "0.1.1"
+version = "0.1.2"
 description = "Agent Bot for Windows, based on Agent HUD"
 edition.workspace = true
 rust-version.workspace = true

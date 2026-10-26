@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Incremental database and batch session ingestion.
 //! Every file tracks an incremental cursor/watermark; sessions resolve through
 //! `session_mapping`, and all SQLite writes stamp `updated_at_ms`.
@@ -445,7 +446,9 @@ impl AgentHudCore {
         for row in records {
             // Official aggregate reports have no classified calls. They are
             // projected onto their Bot separately, never priced as input tokens.
-            if row.get("totalTokens").is_some() { continue; }
+            if row.get("totalTokens").is_some() {
+                continue;
+            }
             let source: &'static str = match row["source"].as_str() {
                 Some("cursor") => "cursor",
                 Some("grok-bot") => "grok-bot",

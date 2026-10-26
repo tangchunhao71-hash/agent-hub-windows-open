@@ -11,8 +11,10 @@
 | 核心操作 | 选定来源状态变化、完成卡、正确会话跳转、重启未读恢复/去重、拖动与任务栏避让、两种缩放完成实际操作 |
 | 对外发布 | 用户确认公开目标与包范围；云端 CI 如未运行应明确说明；不把签名或商业适用性推断为已完成 |
 
-依赖清单汇集了 478 个 npm/Rust 包（含构建及测试依赖），保留了 275 份可用的去重许可正文。8 个包未附单独许可文件，已在随包 `DEPENDENCY_NOTICES.txt` 中标明声明与上游地址，公开分发前仍需按来源核对：@esbuild/win32-x64、@rolldown/binding-win32-x64-msvc、alloc-stdlib、react-remove-scroll-bar、selectors、webview2-com-macros、webview2-com-sys、webview2-com。清单完整性不等于商用或商标许可确认。
+依赖声明由各目标的锁定依赖生成，包含包名、版本、来源及可取得的许可正文。此前缺少单独许可文件的条目按来源补充核对，取证方式见 RELEASE_LICENSE_SUPPLEMENT.txt 和 source/docs/license-evidence.json。清单完整性不等于第三方商标使用授权。
 
-0.1.1 新增 `RELEASE_LICENSE_SUPPLEMENT.txt`，已补齐上列七项许可正文。react-remove-scroll-bar 2.3.8 的 npm 声明为 MIT，但其 gitHead 在声明的上游不可访问，当前上游 package.json 为 2.3.7，版本与许可对应关系仍待核对。MCP/Bun 二进制不再随 0.1.1 安装器分发。品牌标识、应用图标和壁纸的使用范围仍待发行审阅，不能把代码许可当作商标授权。
+0.1.2 候选保留此前七项补充许可，另将 react-remove-scroll-bar 固定到可核对上游提交的 2.3.7。npm 和对应源码 package.json 的 MIT 声明及作者已交叉核对，标准 MIT 正文和取证方式写入 RELEASE_LICENSE_SUPPLEMENT.txt；不把补写正文说成从上游取得的 LICENSE 原件。MCP/Bun 二进制不进入两端发行资源。应用图标与壁纸已换成原创 MIT 素材，客户端标识保留来源和许可，仅用于识别来源，不作为本产品标志或厂商背书。
+
+根 LICENSE 继续保留 Apache-2.0；独立新增文件和原创素材的 MIT 范围见 LICENSE-MIT、LICENSING.md 和 source/docs/license-map.json。TERMS.md 与 PRIVACY.md 随包提供，不缩减开源许可或不可排除的消费者权利。签名状态由实际验证产生，见 SIGNING.md；当前没有发布证书，不将候选包描述为可信签名成品。
 
 原生验收目前尚未完整完成，具体覆盖安装成功、WebView2 缺失及失败恢复、升级保留数据、卸载和回退。多屏、Windows 10、ARM64、HUD 人工批准和自动更新不作兼容承诺。DSH 跳转需要明确的插件回执，不以唤醒窗口代替会话定位。网盘分享地址未提供，下载按钮保持隐藏；闲鱼上架类目尚未核定，本包不是已获准销售的成品。

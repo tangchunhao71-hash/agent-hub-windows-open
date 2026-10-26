@@ -8,7 +8,6 @@ use std::{
     process::Command,
 };
 mod apps;
-mod legacy_history;
 mod process;
 mod secrets;
 pub(crate) use apps::{activate_app, app_running, ACTIVATES_APPS};
@@ -19,22 +18,22 @@ pub(crate) const READS_PROCESS_ENVIRONMENT: bool = true;
 /// Returning to a Claude Code background job moves it into the desktop app
 /// (`claude stop`, then `claude://resume`), verified with Claude Code 2.1.300.
 pub(crate) const MOVES_CLAUDE_JOBS: bool = true;
-mod legacy_preferences;
 pub(crate) fn legacy_preferences() -> Result<Option<serde_json::Value>, String> {
-    legacy_preferences::read()
+    // Keep this independent product's settings separate from Agent HUD.
+    Ok(None)
 }
-pub(crate) const VALIDATION: &str = "macos-live-verified";
-pub(crate) const PORTABLE_VALIDATION: &str = "live-verified";
+pub(crate) const VALIDATION: &str = "macos-unverified-agentbot";
+pub(crate) const PORTABLE_VALIDATION: &str = "unverified-agentbot";
 /// The operating system whose facts the agents' descriptors give here.
 pub(crate) const OS: agent_hud_agents::Os = agent_hud_agents::Os::MacOs;
-pub(crate) const LEGACY_MAC_HISTORY: bool = true;
+pub(crate) const LEGACY_MAC_HISTORY: bool = false;
 pub(crate) fn home_dir() -> Result<PathBuf, String> {
     std::env::var_os("HOME")
         .map(PathBuf::from)
         .ok_or_else(|| "User home directory unavailable".into())
 }
 pub(crate) fn data_dir(home: &Path) -> PathBuf {
-    home.join("Library/Application Support/app.agenthud.next")
+    home.join("Library/Application Support/app.agentbot.macos")
 }
 pub(crate) fn caches_dir(home: &Path) -> PathBuf {
     home.join("Library/Caches")
@@ -131,8 +130,8 @@ pub(crate) fn reveal_transcript(path: &Path) -> Result<(), String> {
         &[path.as_os_str()],
     )
 }
-pub(crate) fn legacy_quota_database(home: &Path) -> Option<PathBuf> {
-    legacy_history::quota_database(home)
+pub(crate) fn legacy_quota_database(_home: &Path) -> Option<PathBuf> {
+    None
 }
 pub(crate) fn processes() -> Result<Vec<ProcessInfo>, String> {
     super::unix::processes(

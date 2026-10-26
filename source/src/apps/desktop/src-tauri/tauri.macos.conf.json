@@ -1,5 +1,10 @@
 {
+  "identifier": "app.agentbot.macos",
   "bundle": {
+    "targets": ["app"],
+    "resources": {
+      "resources/agent-hud-engine": "agent-hud-engine"
+    },
     "macOS": { "minimumSystemVersion": "12.0" }
   }
 }

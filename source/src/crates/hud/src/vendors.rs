@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! The agents a resting HUD draws and what each one reads, projected from a
 //! snapshot as src/packages/hud/src/model.ts `vendorsFromSnapshot` and
 //! `configuredVendors` do, for what the host draws itself: the menu bar item,
@@ -25,13 +26,24 @@ fn list<'a>(snapshot: &'a Value, key: &str) -> impl Iterator<Item = &'a Value> {
 /// The same original quota can be displayed for an explicitly linked client;
 /// it remains one row in the snapshot and one sample in the usage ledger.
 fn quota_matches(snapshot: &Value, quota: &Value, key: &str) -> bool {
-    if mark(quota["vendor"].as_str().unwrap_or("")) == key { return true; }
-    if key != "codebuddy" || quota["vendor"] != "workbuddy" { return false; }
-    let Some(id) = snapshot["settings"]["codebuddyWorkbuddyAccountId"].as_str().filter(|id| !id.is_empty()) else { return false; };
+    if mark(quota["vendor"].as_str().unwrap_or("")) == key {
+        return true;
+    }
+    if key != "codebuddy" || quota["vendor"] != "workbuddy" {
+        return false;
+    }
+    let Some(id) = snapshot["settings"]["codebuddyWorkbuddyAccountId"]
+        .as_str()
+        .filter(|id| !id.is_empty())
+    else {
+        return false;
+    };
     quota["accountId"] == id
-        && ["codebuddy", "workbuddy"].iter().all(|source|
-            list(snapshot, "providers").any(|row| row["id"] == *source && row["enabled"] == true))
-        && list(snapshot, "accounts").any(|account| account["provider"] == "workbuddy" && account["id"] == id)
+        && ["codebuddy", "workbuddy"].iter().all(|source| {
+            list(snapshot, "providers").any(|row| row["id"] == *source && row["enabled"] == true)
+        })
+        && list(snapshot, "accounts")
+            .any(|account| account["provider"] == "workbuddy" && account["id"] == id)
 }
 
 /// Every agent a resting HUD in `mode` shows without a list, one per mark.
@@ -232,8 +244,13 @@ mod tests {
             "providers":[{"id":"workbuddy","enabled":true,"detected":true},{"id":"codebuddy","enabled":true,"detected":true}],
             "quotas":[{"id":"one-window","accountId":"workbuddy:account-a","vendor":"workbuddy","usedPercent":60,"status":"normal"}]
         });
-        assert!(!quota_matches(&snapshot, &snapshot["quotas"][0], "codebuddy"));
-        snapshot["settings"]["codebuddyWorkbuddyAccountId"] = serde_json::json!("workbuddy:account-a");
+        assert!(!quota_matches(
+            &snapshot,
+            &snapshot["quotas"][0],
+            "codebuddy"
+        ));
+        snapshot["settings"]["codebuddyWorkbuddyAccountId"] =
+            serde_json::json!("workbuddy:account-a");
         for mode in ["notch", "simple", "logos"] {
             let rows = vendors(&snapshot, mode, 0);
             let buddy = rows.iter().find(|row| row.key == "codebuddy").unwrap();
@@ -243,10 +260,18 @@ mod tests {
         }
         assert_eq!(snapshot["quotas"].as_array().unwrap().len(), 1);
         snapshot["accounts"][0]["id"] = serde_json::json!("workbuddy:account-b");
-        assert!(!quota_matches(&snapshot, &snapshot["quotas"][0], "codebuddy"));
+        assert!(!quota_matches(
+            &snapshot,
+            &snapshot["quotas"][0],
+            "codebuddy"
+        ));
         snapshot["accounts"][0]["id"] = serde_json::json!("workbuddy:account-a");
         snapshot["providers"][0]["enabled"] = serde_json::json!(false);
-        assert!(!quota_matches(&snapshot, &snapshot["quotas"][0], "codebuddy"));
+        assert!(!quota_matches(
+            &snapshot,
+            &snapshot["quotas"][0],
+            "codebuddy"
+        ));
     }
     use serde_json::json;
 

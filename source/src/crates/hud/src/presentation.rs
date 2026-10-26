@@ -1,10 +1,11 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! One durable presentation owner for all windows and MCP. Drafts and edit holds
 //! are memory-only; a tool cannot turn its proposal into the user's saved choice.
 mod app_rules;
+mod completion_inbox;
 mod rules;
 mod style_rules;
 mod tools;
-mod completion_inbox;
 pub use rules::{mark, resting_agents};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -80,8 +81,14 @@ fn now() -> i64 {
 }
 fn migrate_completion_choice(saved: &mut Saved) {
     if !saved.global.contains_key("completionNotifications") {
-        let enabled = saved.global.get("completionDrops").and_then(Value::as_bool).unwrap_or(true);
-        saved.global.insert("completionNotifications".into(), json!(enabled));
+        let enabled = saved
+            .global
+            .get("completionDrops")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        saved
+            .global
+            .insert("completionNotifications".into(), json!(enabled));
     }
 }
 fn object<'a>(value: &'a Value, label: &str) -> Result<&'a Map<String, Value>, String> {
@@ -131,10 +138,16 @@ fn clear_app_field(s: &mut State, key: &str) -> bool {
 impl Presentation {
     /// One process-owned inbox; windows never overwrite one another's saved queue.
     pub fn completion_inbox(&self, params: Value) -> Result<Value, String> {
-        self.inbox.lock().map_err(|_| "Completion reminder owner unavailable")?.request(params, now())
+        self.inbox
+            .lock()
+            .map_err(|_| "Completion reminder owner unavailable")?
+            .request(params, now())
     }
-    pub fn completion_navigation(&self, params:&Value)->Result<Value,String> {
-        self.inbox.lock().map_err(|_|"Completion reminder owner unavailable")?.navigation(params,now())
+    pub fn completion_navigation(&self, params: &Value) -> Result<Value, String> {
+        self.inbox
+            .lock()
+            .map_err(|_| "Completion reminder owner unavailable")?
+            .navigation(params, now())
     }
     pub fn new(directory: PathBuf) -> Result<Self, String> {
         let path = directory.join("presentation.json");
@@ -300,7 +313,12 @@ impl Presentation {
         let mut s = self.state.lock().unwrap_or_else(|p| p.into_inner());
         self.apply_live_status_defaults(&mut s, snapshot);
         snapshot["sourcePreferences"] = Value::Object(s.saved.sources.clone());
-        let enabled = s.saved.global.get("completionNotifications").and_then(Value::as_bool).unwrap_or(true);
+        let enabled = s
+            .saved
+            .global
+            .get("completionNotifications")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
         if let Ok(mut inbox) = self.inbox.lock() {
             inbox.observe(snapshot, enabled, &s.saved.sources, now());
         }
@@ -400,8 +418,7 @@ impl Presentation {
         migrate_completion_choice(&mut s.saved);
         // Local Windows parity: Settings edits the shared layout until explicitly detached.
         // Keep style/placement edits on the selected display even in a mixed patch.
-        let layout_id = if params["layoutScope"] == "effective"
-            && !s.saved.layouts.contains_key(id)
+        let layout_id = if params["layoutScope"] == "effective" && !s.saved.layouts.contains_key(id)
         {
             "all"
         } else {
@@ -519,8 +536,7 @@ impl Presentation {
         let screen = params["screen"].as_str().unwrap_or("all");
         let shared_choice = params["shared"].as_bool();
         let follow_shared = screen != "all"
-            && (shared_choice == Some(true)
-                || params.get("layout").is_some_and(Value::is_null));
+            && (shared_choice == Some(true) || params.get("layout").is_some_and(Value::is_null));
         let layout = if follow_shared {
             Value::Null
         } else if screen != "all" && shared_choice == Some(false) {

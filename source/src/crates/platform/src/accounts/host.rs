@@ -1,24 +1,25 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! The `Host` the agents' account readers read through: this machine's files,
 //! credential store, saved credentials, consents and HTTP client.
 use super::{credentials, engine, http, AccountContext};
-#[cfg(any(windows, test))]
-#[path = "antigravity_proxy.rs"]
-mod antigravity_proxy;
 #[cfg(windows)]
 #[path = "antigravity_proxy_windows.rs"]
 mod antigravity_cli;
 #[cfg(not(windows))]
 #[path = "antigravity_proxy_unsupported.rs"]
 mod antigravity_cli;
-#[cfg(windows)]
-#[path = "workbuddy_windows.rs"]
-mod workbuddy;
+#[cfg(any(windows, test))]
+#[path = "antigravity_proxy.rs"]
+mod antigravity_proxy;
 #[cfg(windows)]
 #[path = "grok_bot_windows.rs"]
 mod grok_bot;
 #[cfg(not(windows))]
 #[path = "grok_bot_unsupported.rs"]
 mod grok_bot;
+#[cfg(windows)]
+#[path = "workbuddy_windows.rs"]
+mod workbuddy;
 #[cfg(not(windows))]
 #[path = "workbuddy_unsupported.rs"]
 mod workbuddy;
@@ -177,7 +178,10 @@ impl Host for AccountContext {
         } else if agent == agent_hud_agents::antigravity::AGENT.id {
             if method == "ReadAccounts" {
                 let local_app_data = antigravity_cli::installed_cli_root(&self.home, &self.env);
-                crate::clients::antigravity::service::read_accounts(params, local_app_data.as_deref())
+                crate::clients::antigravity::service::read_accounts(
+                    params,
+                    local_app_data.as_deref(),
+                )
             } else {
                 crate::clients::antigravity::service::call(method, params)
             }

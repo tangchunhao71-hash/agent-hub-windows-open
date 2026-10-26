@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 use agent_hud_runtime::Runtime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -14,10 +15,12 @@ mod activity;
 mod capture;
 mod claude_plugin;
 mod cli;
+pub mod collaboration;
+#[cfg(test)]
+mod completion_navigation_tests;
 mod coordinator;
 mod demo;
 pub mod extension;
-pub mod collaboration;
 mod hud;
 mod instance;
 mod manual_release;
@@ -28,8 +31,6 @@ mod shell;
 mod system;
 mod tools;
 mod tray;
-#[cfg(test)]
-mod completion_navigation_tests;
 
 struct Backend {
     runtime: Runtime,

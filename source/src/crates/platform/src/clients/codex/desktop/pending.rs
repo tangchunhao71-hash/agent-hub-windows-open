@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 use super::super::desktop_io::IpcError;
 use agent_hud_agents::codex::AGENT;
 use agent_hud_core::l10n;
@@ -57,44 +58,82 @@ fn view(thread: &str, summary: &str, tool: &str, cwd: &Value, kind: &str) -> Val
 }
 
 fn allows_native_approval(permissions: &Value, granular_kind: &str) -> bool {
-    if permissions["approvalsReviewer"] != "user" { return false; }
+    if permissions["approvalsReviewer"] != "user" {
+        return false;
+    }
     let policy = &permissions["approvalPolicy"];
-    matches!(policy.as_str(), Some("on-request" | "on-failure" | "untrusted"))
-        || policy["granular"][granular_kind] == true
+    matches!(
+        policy.as_str(),
+        Some("on-request" | "on-failure" | "untrusted")
+    ) || policy["granular"][granular_kind] == true
 }
 
 /// Verified against Codex Desktop 26.1021.3705.0 main-BPBEjAxi.js. Only a
 /// command's one-shot accept/decline is exposed; policy/session changes stay
 /// in the Desktop. The owner must still hold this exact request on a live turn.
-fn command_pending(state: &Value, wire: &Value, thread: &str, owner: &str) -> Result<Option<Pending>, IpcError> {
+fn command_pending(
+    state: &Value,
+    wire: &Value,
+    thread: &str,
+    owner: &str,
+) -> Result<Option<Pending>, IpcError> {
     let params = &wire["params"];
     if wire["method"] != "item/commandExecution/requestApproval"
-        || wire["completed"] == true || params["threadId"] != thread
-    { return Ok(None); }
+        || wire["completed"] == true
+        || params["threadId"] != thread
+    {
+        return Ok(None);
+    }
     let request_id = &wire["id"];
-    if request_id.as_str().is_none_or(str::is_empty)
-        && !request_id.is_i64() && !request_id.is_u64()
-    { return Ok(None); }
-    let (Some(turn_id), Some(_item_id), Some(command)) =
-        (text(&params["turnId"]), text(&params["itemId"]), params["command"].as_str().filter(|command| !command.trim().is_empty()))
-    else { return Ok(None); };
-    if current_turn(state)? != Some(turn_id) { return Ok(None); }
+    if request_id.as_str().is_none_or(str::is_empty) && !request_id.is_i64() && !request_id.is_u64()
+    {
+        return Ok(None);
+    }
+    let (Some(turn_id), Some(_item_id), Some(command)) = (
+        text(&params["turnId"]),
+        text(&params["itemId"]),
+        params["command"]
+            .as_str()
+            .filter(|command| !command.trim().is_empty()),
+    ) else {
+        return Ok(None);
+    };
+    if current_turn(state)? != Some(turn_id) {
+        return Ok(None);
+    }
     let turns = turns(state, true)?;
-    let Some(turn) = turns.into_iter().find(|turn| turn["turnId"] == turn_id && turn["status"] == "inProgress")
-    else { return Ok(None); };
+    let Some(turn) = turns
+        .into_iter()
+        .find(|turn| turn["turnId"] == turn_id && turn["status"] == "inProgress")
+    else {
+        return Ok(None);
+    };
     let permissions = &turn["params"];
     if !allows_native_approval(permissions, "sandbox_approval") {
         return Ok(None);
     }
-    let mut card = view(thread, &l10n::text("允许执行此命令？", "Allow this command?"),
-        "exec_command", &params["cwd"], "permission");
+    let mut card = view(
+        thread,
+        &l10n::text("允许执行此命令？", "Allow this command?"),
+        "exec_command",
+        &params["cwd"],
+        "permission",
+    );
     card["input"] = json!(command);
     card["detail"] = json!(text(&params["reason"]));
     card["allowLabel"] = json!(l10n::text("批准一次", "Allow once"));
     card["badge"] = json!("CMD");
-    Ok(Some(Pending {id:identity("codex-desktop-command",thread,owner,wire),thread:thread.into(),
-        owner:owner.into(),wire:wire.clone(),request_id:request_id.clone(),view:card,
-        scopes:vec![],turn_id:Some(turn_id.into()),question:None}))
+    Ok(Some(Pending {
+        id: identity("codex-desktop-command", thread, owner, wire),
+        thread: thread.into(),
+        owner: owner.into(),
+        wire: wire.clone(),
+        request_id: request_id.clone(),
+        view: card,
+        scopes: vec![],
+        turn_id: Some(turn_id.into()),
+        question: None,
+    }))
 }
 
 /// The current client models fileSystem.entries as {access,path:{type,path}}.
@@ -102,63 +141,134 @@ fn command_pending(state: &Value, wire: &Value, thread: &str, owner: &str) -> Re
 /// special roots and unknown fields cannot be granted by an incomplete card.
 fn explicit_file_permissions(value: &Value) -> Option<Value> {
     let permissions = value.as_object()?;
-    if permissions.keys().any(|key| !matches!(key.as_str(), "fileSystem" | "network"))
-        || permissions.get("network").is_some_and(|network| !network.is_null())
-    { return None; }
+    if permissions
+        .keys()
+        .any(|key| !matches!(key.as_str(), "fileSystem" | "network"))
+        || permissions
+            .get("network")
+            .is_some_and(|network| !network.is_null())
+    {
+        return None;
+    }
     let file_system = permissions.get("fileSystem")?.as_object()?;
-    if file_system.keys().any(|key| key != "entries") { return None; }
+    if file_system.keys().any(|key| key != "entries") {
+        return None;
+    }
     let entries = file_system.get("entries")?.as_array()?;
-    if entries.is_empty() || entries.len() > 256 { return None; }
+    if entries.is_empty() || entries.len() > 256 {
+        return None;
+    }
     for entry in entries {
         let object = entry.as_object()?;
-        if object.keys().any(|key| !matches!(key.as_str(), "access" | "path"))
+        if object
+            .keys()
+            .any(|key| !matches!(key.as_str(), "access" | "path"))
             || !matches!(entry["access"].as_str(), Some("read" | "write"))
-        { return None; }
+        {
+            return None;
+        }
         let path = entry["path"].as_object()?;
-        if path.keys().any(|key| !matches!(key.as_str(), "type" | "path"))
+        if path
+            .keys()
+            .any(|key| !matches!(key.as_str(), "type" | "path"))
             || entry["path"]["type"] != "path"
-        { return None; }
+        {
+            return None;
+        }
         let path = entry["path"]["path"].as_str()?;
-        if path.len() > 4096 || path.chars().any(char::is_control)
+        if path.len() > 4096
+            || path.chars().any(char::is_control)
             || !std::path::Path::new(path).is_absolute()
-        { return None; }
+        {
+            return None;
+        }
     }
     Some(json!({"fileSystem":value["fileSystem"]}))
 }
 
-fn permissions_pending(state: &Value, wire: &Value, thread: &str, owner: &str) -> Result<Option<Pending>, IpcError> {
+fn permissions_pending(
+    state: &Value,
+    wire: &Value,
+    thread: &str,
+    owner: &str,
+) -> Result<Option<Pending>, IpcError> {
     let params = &wire["params"];
-    if wire["method"] != "item/permissions/requestApproval" || wire["completed"] == true
+    if wire["method"] != "item/permissions/requestApproval"
+        || wire["completed"] == true
         || params["threadId"] != thread
-    { return Ok(None); }
-    let request_id = &wire["id"];
-    if request_id.as_str().is_none_or(str::is_empty) && !request_id.is_i64() && !request_id.is_u64() {
+    {
         return Ok(None);
     }
-    let Some(turn_id) = text(&params["turnId"]) else { return Ok(None); };
-    if current_turn(state)? != Some(turn_id) { return Ok(None); }
+    let request_id = &wire["id"];
+    if request_id.as_str().is_none_or(str::is_empty) && !request_id.is_i64() && !request_id.is_u64()
+    {
+        return Ok(None);
+    }
+    let Some(turn_id) = text(&params["turnId"]) else {
+        return Ok(None);
+    };
+    if current_turn(state)? != Some(turn_id) {
+        return Ok(None);
+    }
     let turns = turns(state, true)?;
-    let Some(turn) = turns.into_iter().find(|turn| turn["turnId"] == turn_id && turn["status"] == "inProgress")
-    else { return Ok(None); };
+    let Some(turn) = turns
+        .into_iter()
+        .find(|turn| turn["turnId"] == turn_id && turn["status"] == "inProgress")
+    else {
+        return Ok(None);
+    };
     if !allows_native_approval(&turn["params"], "request_permissions") {
         return Ok(None);
     }
-    let Some(permissions) = explicit_file_permissions(&params["permissions"]) else { return Ok(None); };
-    let mut card = view(thread, &l10n::text("允许本回合访问这些文件？", "Allow these files for this turn?"),
-        "request_permissions", &state["cwd"], "permission");
-    let entries = permissions["fileSystem"]["entries"].as_array().ok_or(IpcError::Protocol)?;
-    let lines = entries.iter().map(|entry| {
-        let access = if entry["access"] == "read" {l10n::text("读取", "Read")} else {l10n::text("写入", "Write")};
-        format!("{access}: {}", entry["path"]["path"].as_str().unwrap())
-    }).collect::<Vec<_>>().join("\n");
+    let Some(permissions) = explicit_file_permissions(&params["permissions"]) else {
+        return Ok(None);
+    };
+    let mut card = view(
+        thread,
+        &l10n::text(
+            "允许本回合访问这些文件？",
+            "Allow these files for this turn?",
+        ),
+        "request_permissions",
+        &state["cwd"],
+        "permission",
+    );
+    let entries = permissions["fileSystem"]["entries"]
+        .as_array()
+        .ok_or(IpcError::Protocol)?;
+    let lines = entries
+        .iter()
+        .map(|entry| {
+            let access = if entry["access"] == "read" {
+                l10n::text("读取", "Read")
+            } else {
+                l10n::text("写入", "Write")
+            };
+            format!("{access}: {}", entry["path"]["path"].as_str().unwrap())
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
     card["input"] = json!(lines);
-    let scope = l10n::text("仅当前回合；不会授予会话或永久权限。", "This turn only; no session or permanent permission.");
-    card["detail"] = json!(text(&params["reason"]).map_or(scope.clone(), |reason| format!("{scope}\n\n{reason}")));
+    let scope = l10n::text(
+        "仅当前回合；不会授予会话或永久权限。",
+        "This turn only; no session or permanent permission.",
+    );
+    card["detail"] = json!(
+        text(&params["reason"]).map_or(scope.clone(), |reason| format!("{scope}\n\n{reason}"))
+    );
     card["allowLabel"] = json!(l10n::text("允许本回合", "Allow this turn"));
     card["badge"] = json!("FILES");
-    Ok(Some(Pending {id:identity("codex-desktop-files",thread,owner,wire),thread:thread.into(),
-        owner:owner.into(),wire:wire.clone(),request_id:request_id.clone(),view:card,
-        scopes:vec![],turn_id:Some(turn_id.into()),question:None}))
+    Ok(Some(Pending {
+        id: identity("codex-desktop-files", thread, owner, wire),
+        thread: thread.into(),
+        owner: owner.into(),
+        wire: wire.clone(),
+        request_id: request_id.clone(),
+        view: card,
+        scopes: vec![],
+        turn_id: Some(turn_id.into()),
+        question: None,
+    }))
 }
 
 pub(super) fn parse(state: &Value, thread: &str, owner: &str) -> Result<Vec<Pending>, IpcError> {
@@ -501,7 +611,9 @@ pub(super) fn answer(
         return Ok((ELICITATION_METHOD, Value::Null));
     }
     if item.wire["method"] == "item/commandExecution/requestApproval" {
-        let present = state["requests"].as_array().is_some_and(|requests| requests.iter().any(|wire| wire == &item.wire));
+        let present = state["requests"]
+            .as_array()
+            .is_some_and(|requests| requests.iter().any(|wire| wire == &item.wire));
         if !present || command_pending(state, &item.wire, &item.thread, &item.owner)?.is_none() {
             return Err(IpcError::Protocol);
         }
@@ -512,16 +624,23 @@ pub(super) fn answer(
         };
     }
     if item.wire["method"] == "item/permissions/requestApproval" {
-        let present = state["requests"].as_array().is_some_and(|requests| requests.iter().any(|wire| wire == &item.wire));
-        if !present || permissions_pending(state, &item.wire, &item.thread, &item.owner)?.is_none() {
+        let present = state["requests"]
+            .as_array()
+            .is_some_and(|requests| requests.iter().any(|wire| wire == &item.wire));
+        if !present || permissions_pending(state, &item.wire, &item.thread, &item.owner)?.is_none()
+        {
             return Err(IpcError::Protocol);
         }
         let permissions = match kind {
-            "allow" => explicit_file_permissions(&item.wire["params"]["permissions"]).ok_or(IpcError::Protocol)?,
+            "allow" => explicit_file_permissions(&item.wire["params"]["permissions"])
+                .ok_or(IpcError::Protocol)?,
             "deny" => json!({}),
             _ => return Err(IpcError::Protocol),
         };
-        return Ok((PERMISSIONS_METHOD, json!({"permissions":permissions,"scope":"turn"})));
+        return Ok((
+            PERMISSIONS_METHOD,
+            json!({"permissions":permissions,"scope":"turn"}),
+        ));
     }
     if let Some((question, labels)) = &item.question {
         if kind != "answer" || current_turn(state)? != item.turn_id.as_deref() {

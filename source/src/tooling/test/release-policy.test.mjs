@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,11 +24,20 @@ test("release identity and installer ownership are independent of the preview", 
 });
 
 test("installer resources cannot sweep up local credentials or experiment files", () => {
-  const resources = config.bundle.resources;
+  const windows = JSON.parse(
+    read("src/apps/desktop/src-tauri/tauri.windows.conf.json"),
+  );
+  const resources = { ...config.bundle.resources, ...windows.bundle.resources };
   assert.deepEqual(
     Object.values(resources).sort(),
     [
       "LICENSE",
+      "LICENSE-MIT",
+      "NOTICE",
+      "LICENSING.md",
+      "LICENSE_MAP.json",
+      "TERMS.md",
+      "PRIVACY.md",
       "DEPENDENCY_NOTICES.txt",
       "RELEASE_LICENSE_SUPPLEMENT.txt",
       "LobeIcons-LICENSE.txt",

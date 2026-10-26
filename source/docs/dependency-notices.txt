@@ -1517,7 +1517,7 @@ License: MIT
 Source: https://react.dev/
 Notices: cf9b17822d1fcd4ff32ccbe14183386fb3adf6f2ff92dc184130823f7fc28173
 
-react-remove-scroll-bar 2.3.8
+react-remove-scroll-bar 2.3.7
 License: MIT
 Source: https://github.com/theKashey/react-remove-scroll-bar#readme
 Notices: No separate license file found; review upstream source before public distribution.

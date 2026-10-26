@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Existing Antigravity local services publish their explicit run status. This
 //! read-only adapter starts neither an application nor a model task.
 use super::service::{self, Endpoint};
@@ -19,14 +20,18 @@ fn read_endpoints(endpoints: &[Endpoint]) -> Result<Vec<Value>, String> {
 fn merge(rows: Vec<Value>) -> Vec<Value> {
     let mut unique = BTreeMap::<String, Value>::new();
     for row in rows {
-        let Some(id) = row["id"].as_str().map(str::to_owned) else { continue; };
+        let Some(id) = row["id"].as_str().map(str::to_owned) else {
+            continue;
+        };
         if let Some(old) = unique.get_mut(&id) {
             if old["state"] != row["state"] {
                 old["state"] = json!("unverified");
             } else if row["observedAt"].as_str() > old["observedAt"].as_str() {
                 *old = row;
             }
-        } else { unique.insert(id, row); }
+        } else {
+            unique.insert(id, row);
+        }
     }
     unique.into_values().collect()
 }
@@ -40,7 +45,9 @@ pub fn read() -> Result<Vec<Value>, String> {
         Ok(rows) => Ok(rows),
         Err(error) => {
             let current = service::endpoints(true)?;
-            if current == known { return Err(error); }
+            if current == known {
+                return Err(error);
+            }
             read_endpoints(&current)
         }
     }
@@ -58,14 +65,14 @@ mod tests {
             json!({"id":"antigravity:one","state":"idle"}),
             json!({"id":"antigravity:one","state":"running"}),
         ]);
-        assert_eq!(rows[0]["state"],"unverified");
-        assert_eq!(rows[1]["state"],"running");
+        assert_eq!(rows[0]["state"], "unverified");
+        assert_eq!(rows[1]["state"], "running");
     }
 
     #[test]
     fn matching_services_deduplicate_and_empty_service_withdraws_all_rows() {
         let row = json!({"id":"antigravity:one","state":"waiting"});
-        assert_eq!(merge(vec![row.clone(),row.clone()]),vec![row]);
+        assert_eq!(merge(vec![row.clone(), row.clone()]), vec![row]);
         assert!(merge(vec![]).is_empty());
     }
 
@@ -73,11 +80,12 @@ mod tests {
     fn matching_services_keep_the_newest_observation_without_extending_a_conflict() {
         let old = json!({"id":"antigravity:one","state":"running","observedAt":"2026-10-25T00:00:00Z","expiresAt":"2026-10-25T00:00:08Z"});
         let new = json!({"id":"antigravity:one","state":"running","observedAt":"2026-10-25T00:00:02Z","expiresAt":"2026-10-25T00:00:10Z"});
-        assert_eq!(merge(vec![new.clone(), old.clone()]),vec![new.clone()]);
-        assert_eq!(merge(vec![old.clone(), new.clone()]),vec![new.clone()]);
-        let conflict = json!({"id":"antigravity:one","state":"idle","observedAt":"2026-10-25T00:00:01Z"});
-        let result = merge(vec![old,conflict,new]);
-        assert_eq!(result[0]["state"],"unverified");
-        assert_eq!(result[0]["expiresAt"],"2026-10-25T00:00:08Z");
+        assert_eq!(merge(vec![new.clone(), old.clone()]), vec![new.clone()]);
+        assert_eq!(merge(vec![old.clone(), new.clone()]), vec![new.clone()]);
+        let conflict =
+            json!({"id":"antigravity:one","state":"idle","observedAt":"2026-10-25T00:00:01Z"});
+        let result = merge(vec![old, conflict, new]);
+        assert_eq!(result[0]["state"], "unverified");
+        assert_eq!(result[0]["expiresAt"], "2026-10-25T00:00:08Z");
     }
 }

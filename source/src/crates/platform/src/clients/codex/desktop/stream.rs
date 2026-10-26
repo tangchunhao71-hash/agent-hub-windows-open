@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 use super::*;
 use serde_json::json;
 use std::collections::{HashMap, HashSet};
@@ -17,9 +18,7 @@ pub(super) fn work(shared: Arc<Shared>) {
             continue;
         }
         let began = Instant::now();
-        if let Ok(mut connection) =
-            DesktopIpc::connect(&shared.endpoint, Duration::from_secs(5))
-        {
+        if let Ok(mut connection) = DesktopIpc::connect(&shared.endpoint, Duration::from_secs(5)) {
             if let Ok(handle) = connection.shutdown_handle() {
                 let mut state = shared.state.lock().unwrap_or_else(|p| p.into_inner());
                 // Stop may win while connect is in progress. Never register a

@@ -1,6 +1,7 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 import { useFormat } from "@agent-hud/ui/format-context";
 import { quotaPercent, quotaPercentLabel } from "@agent-hud/ui/format";
-import settingsWallpaper from "@agent-hud/ui/assets/settings-wallpaper.png";
+import settingsWallpaper from "@agent-hud/ui/assets/agent-bot-wallpaper.svg";
 import {
   DollarSign,
   Flame,

@@ -1,8 +1,8 @@
-# Agent Bot for Windows
+# Agent Bot for Windows / macOS
 
 基于 [Agent HUD](https://github.com/jazzenchen/agent-hud-open) 修改的 Windows 状态面板。集中查看已有 AI 客户端的状态、额度和任务完成提醒；保留一排 Agent、常用主 Agent 置顶及 Bot 动效。
 
-当前版本为 **0.1.1**，本仓库提供源码；安装包仍为本地发行候选。支持目标为 Windows 11 x64；干净机器安装与完整原生交互验收未完成，不能当作已通过商业发行认证的成品。
+当前版本为 **0.1.2 候选**。Windows 目标为 Windows 11 x64；Mac 分 Apple Silicon 和 Intel 两个预览包。两端均未取得可信代码签名，Mac 未经 Apple 公证，干净机器安装与完整原生交互验收未完成。0.1.1 的构建记录不代替本版本验收。
 
 ## 首发范围
 
@@ -35,8 +35,10 @@ pwsh -NoProfile -File scripts/build-windows.ps1 -Bundle -Receipt source/.build/r
 
 ## 来源与许可
 
-上游主代码为 Apache-2.0，见 [LICENSE](LICENSE)；修改说明见 [CHANGELOG](docs/release/CHANGELOG.md)。第三方说明在 [source/docs/third-party.md](source/docs/third-party.md)，品牌图标保留原声明和 LobeHub 许可。React Bits 入场动效已用已有 Motion 依赖重新实现，React Bits 与 GSAP 已移除；旧 Clawd 精灵表不随包分发。
+上游主代码保留 Apache-2.0，见 [LICENSE](LICENSE)；独立新增文件与原创图标、壁纸按 MIT 提供，范围见 [LICENSING.md](LICENSING.md) 和 source/docs/license-map.json。修改说明见 [CHANGELOG](docs/release/CHANGELOG.md)。第三方说明在 [source/docs/third-party.md](source/docs/third-party.md)，品牌图标保留原声明和 LobeHub 许可。React Bits 入场动效已用已有 Motion 依赖重新实现，React Bits 与 GSAP 已移除；旧 Clawd 精灵表不随包分发。
 
 公开源码来自独立导出，不带私人 Git 历史、账号、运行数据库、截图和内部交接。源码公开不代表安装包已完成销售验收；网盘交付地址尚未配置，仓库没有提供正式安装包下载。
 
 第三方代码及素材遵循各自条款，主代码的 Apache-2.0 不覆盖第三方商标与素材权利。依赖许可补充及未关闭事项见 [RELEASE_LICENSE_SUPPLEMENT](source/docs/release-license-supplement.txt)。
+
+0.1.2 增加随包 NOTICE、LICENSE-MIT、许可范围、[使用条款](docs/release/TERMS.md)与[签名说明](docs/release/SIGNING.md)。购买、再分发均须保留适用许可；付费支持不改变开源授权。Mac 构建见 [BUILD.md](docs/release/macos/BUILD.md)。

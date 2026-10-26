@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Windows process ancestry through the local Win32_Process provider. Accept only
 //! this user's parents, stop at a reused PID, and never read process environments.
 use super::super::ProcessAncestor;
@@ -145,7 +146,9 @@ pub(crate) fn parent_processes() -> Vec<ProcessAncestor> {
     };
     parents(&bytes)
         .map_while(|parent| {
-            if !same_user_process(parent.pid, parent.created) { return None; }
+            if !same_user_process(parent.pid, parent.created) {
+                return None;
+            }
             Some(ProcessAncestor {
                 executable: parent.executable,
                 arguments: arguments(&parent.command)?,
@@ -175,38 +178,84 @@ fn parents(bytes: &[u8]) -> impl Iterator<Item = Parent> + '_ {
 fn same_user_process(pid: u32, created: u64) -> bool {
     owned_process(pid, Some(created)).is_some()
 }
-pub(super) fn owned_process(pid: u32, created: Option<u64>) -> Option<std::os::windows::io::OwnedHandle> {
+pub(super) fn owned_process(
+    pid: u32,
+    created: Option<u64>,
+) -> Option<std::os::windows::io::OwnedHandle> {
     use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
     use windows_sys::Win32::{
         Foundation::{FILETIME, HANDLE},
         Security::{EqualSid, GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER},
-        System::Threading::{GetCurrentProcess, GetProcessTimes, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION},
+        System::Threading::{
+            GetCurrentProcess, GetProcessTimes, OpenProcess, OpenProcessToken,
+            PROCESS_QUERY_LIMITED_INFORMATION,
+        },
     };
     fn token_user(process: HANDLE) -> Option<Vec<usize>> {
         let mut token = std::ptr::null_mut();
-        if unsafe { OpenProcessToken(process, TOKEN_QUERY, &mut token) } == 0 { return None; }
+        if unsafe { OpenProcessToken(process, TOKEN_QUERY, &mut token) } == 0 {
+            return None;
+        }
         let token = unsafe { OwnedHandle::from_raw_handle(token) };
         let mut length = 0;
-        unsafe { GetTokenInformation(token.as_raw_handle(), TokenUser, std::ptr::null_mut(), 0, &mut length) };
-        if (length as usize) < std::mem::size_of::<TOKEN_USER>() || length > 65536 { return None; }
+        unsafe {
+            GetTokenInformation(
+                token.as_raw_handle(),
+                TokenUser,
+                std::ptr::null_mut(),
+                0,
+                &mut length,
+            )
+        };
+        if (length as usize) < std::mem::size_of::<TOKEN_USER>() || length > 65536 {
+            return None;
+        }
         let mut buffer = vec![0usize; (length as usize).div_ceil(std::mem::size_of::<usize>())];
-        if unsafe { GetTokenInformation(token.as_raw_handle(), TokenUser, buffer.as_mut_ptr().cast(), length, &mut length) } == 0 { return None; }
+        if unsafe {
+            GetTokenInformation(
+                token.as_raw_handle(),
+                TokenUser,
+                buffer.as_mut_ptr().cast(),
+                length,
+                &mut length,
+            )
+        } == 0
+        {
+            return None;
+        }
         Some(buffer)
     }
-    if pid == 0 || created == Some(0) { return None; }
+    if pid == 0 || created == Some(0) {
+        return None;
+    }
     let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
-    if process.is_null() { return None; }
+    if process.is_null() {
+        return None;
+    }
     let process = unsafe { OwnedHandle::from_raw_handle(process) };
     let mut creation = FILETIME::default();
     let mut exit = FILETIME::default();
     let mut kernel = FILETIME::default();
     let mut user = FILETIME::default();
-    if unsafe { GetProcessTimes(process.as_raw_handle(), &mut creation, &mut exit, &mut kernel, &mut user) } == 0 { return None; }
+    if unsafe {
+        GetProcessTimes(
+            process.as_raw_handle(),
+            &mut creation,
+            &mut exit,
+            &mut kernel,
+            &mut user,
+        )
+    } == 0
+    {
+        return None;
+    }
     let actual = (u64::from(creation.dwHighDateTime) << 32) | u64::from(creation.dwLowDateTime);
     // CIM_DATETIME carries microseconds; native FILETIME carries 100 ns ticks.
-    if created.is_some_and(|created| actual / 10 != created / 10) { return None; }
-    let Some(candidate) = token_user(process.as_raw_handle()) else { return None; };
-    let Some(current) = token_user(unsafe { GetCurrentProcess() }) else { return None; };
+    if created.is_some_and(|created| actual / 10 != created / 10) {
+        return None;
+    }
+    let candidate = token_user(process.as_raw_handle())?;
+    let current = token_user(unsafe { GetCurrentProcess() })?;
     let candidate = unsafe { &*candidate.as_ptr().cast::<TOKEN_USER>() };
     let current = unsafe { &*current.as_ptr().cast::<TOKEN_USER>() };
     (unsafe { EqualSid(candidate.User.Sid, current.User.Sid) } != 0).then_some(process)
@@ -332,12 +381,26 @@ mod tests {
 
     #[test]
     fn ancestry_native_identity_requires_same_user_and_same_creation() {
-        use windows_sys::Win32::{Foundation::FILETIME, System::Threading::{GetCurrentProcess, GetProcessTimes}};
+        use windows_sys::Win32::{
+            Foundation::FILETIME,
+            System::Threading::{GetCurrentProcess, GetProcessTimes},
+        };
         let mut created = FILETIME::default();
         let mut exit = FILETIME::default();
         let mut kernel = FILETIME::default();
         let mut user = FILETIME::default();
-        assert_ne!(unsafe { GetProcessTimes(GetCurrentProcess(), &mut created, &mut exit, &mut kernel, &mut user) }, 0);
+        assert_ne!(
+            unsafe {
+                GetProcessTimes(
+                    GetCurrentProcess(),
+                    &mut created,
+                    &mut exit,
+                    &mut kernel,
+                    &mut user,
+                )
+            },
+            0
+        );
         let time = (u64::from(created.dwHighDateTime) << 32) | u64::from(created.dwLowDateTime);
         let pid = std::process::id();
         assert!(same_user_process(pid, time));

@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Cached account facts supplied by the platform account reader. The domain
 //! engine never performs network or engine I/O while projecting local sessions.
 use super::*;
@@ -21,7 +22,9 @@ impl crate::AgentHudCore {
     pub(super) fn decorate_reported_usage(&self, sessions: &mut [Value]) {
         let totals = reported_usage::totals(&self.accounts.session_records);
         for session in sessions {
-            if session["source"] != "grok-bot" { continue; }
+            if session["source"] != "grok-bot" {
+                continue;
+            }
             if let Some(report) = session["id"].as_str().and_then(|id| totals.get(id)) {
                 session["reportedUsage"] = report.clone();
             }

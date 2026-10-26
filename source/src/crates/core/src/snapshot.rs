@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! The snapshot every window, the menu bar and MCP draw from: one collection
 //! pass, then sessions, quotas, balances, accounts and providers as of the
 //! metrics clock.
@@ -105,8 +106,12 @@ impl crate::AgentHudCore {
         let mut hash = std::collections::hash_map::DefaultHasher::new();
         self.statistics.revision.hash(&mut hash);
         self.render.accounts.hash(&mut hash);
-        self.grok_activity.fingerprint(wall_clock_ms()).hash(&mut hash);
-        self.source_activity.fingerprint(wall_clock_ms()).hash(&mut hash);
+        self.grok_activity
+            .fingerprint(wall_clock_ms())
+            .hash(&mut hash);
+        self.source_activity
+            .fingerprint(wall_clock_ms())
+            .hash(&mut hash);
         self.hook_events.revision().hash(&mut hash);
         self.requests.revision().hash(&mut hash);
         self.settings.to_string().hash(&mut hash);
@@ -404,8 +409,16 @@ impl crate::AgentHudCore {
             }));
         }
         if self.source_collection_enabled("antigravity") {
-            let known = sessions.iter().filter_map(|row| Some((row["source"].as_str()?.to_owned(),row["id"].as_str()?.to_owned()))).collect();
-            sessions.extend(self.source_activity.extra_sessions(now,&known));
+            let known = sessions
+                .iter()
+                .filter_map(|row| {
+                    Some((
+                        row["source"].as_str()?.to_owned(),
+                        row["id"].as_str()?.to_owned(),
+                    ))
+                })
+                .collect();
+            sessions.extend(self.source_activity.extra_sessions(now, &known));
         }
         presentation::sort_sessions(&mut sessions);
         self.decorate_reported_usage(&mut sessions);

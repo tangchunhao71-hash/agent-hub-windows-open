@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
@@ -79,6 +80,18 @@ export function sourceSnapshot(sourceRoot) {
     "scripts/build-windows.ps1",
     "docs/upstream-baseline.json",
     "docs/mcp-relay-windows-x64.json",
+    "LICENSE",
+    "LICENSE-MIT",
+    "NOTICE",
+    "LICENSING.md",
+    "docs/release/",
+    "scripts/build-macos.sh",
+    "scripts/package-macos.mjs",
+    "scripts/package-windows.mjs",
+    "scripts/signature-report.mjs",
+    "scripts/windows-signature-report.ps1",
+    "scripts/zip-windows-delivery.ps1",
+    "scripts/collect-release-notices.mjs",
   ];
   const files = [
     ...new Set(
@@ -238,24 +251,28 @@ export function pnpmCommand(env, host = process.platform) {
       shell: false,
     };
   if (host === "win32") {
-    const locate = (name) => {
-      const result = spawnSync("where.exe", [name], {
-        env,
-        encoding: "utf8",
-        windowsHide: true,
-      });
-      return result.status === 0
-        ? result.stdout.trim().split(/\r?\n/)[0]
-        : null;
-    };
-    const shim = locate("pnpm.cmd");
-    if (shim) {
-      const cli = join(dirname(shim), "node_modules/pnpm/bin/pnpm.cjs");
-      if (existsSync(cli))
-        return { command: process.execPath, prefix: [cli], shell: false };
+    // where.exe emits through the Windows code page and can corrupt Unicode
+    // paths on English CI images. Inspect literal paths without a shell.
+    const paths = (env.PATH ?? env.Path ?? env.path ?? "")
+      .split(";")
+      .map((path) => path.trim().replace(/^"|"$/g, ""))
+      .filter(Boolean);
+    for (const path of paths) {
+      if (existsSync(join(path, "pnpm.cmd"))) {
+        for (const cli of [
+          join(path, "node_modules/pnpm/bin/pnpm.cjs"),
+          join(path, "node_modules/pnpm/bin/pnpm.mjs"),
+          resolve(path, "../pnpm/bin/pnpm.cjs"),
+          resolve(path, "../pnpm/bin/pnpm.mjs"),
+        ]) {
+          if (existsSync(cli))
+            return { command: process.execPath, prefix: [cli], shell: false };
+        }
+      }
+      const executable = join(path, "pnpm.exe");
+      if (existsSync(executable))
+        return { command: executable, prefix: [], shell: false };
     }
-    const executable = locate("pnpm.exe");
-    if (executable) return { command: executable, prefix: [], shell: false };
     throw Error(
       "Set AGENTHUD_PNPM_CLI (or -PnpmCli) to pnpm.cjs; no standalone pnpm.exe or npm pnpm shim was found",
     );

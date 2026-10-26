@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Session observers: a client's own extension or plugin writes lifecycle
 //! records (Pi's extension, OpenCode's plugin). They carry metadata only.
 use crate::{by_id, HookEvent};
@@ -44,7 +45,11 @@ pub fn parse_observation(source: &str, record: &Value) -> Result<HookEvent, Stri
         && record.get("state").is_none()
         && record.get("observedAtMs").is_none()
         && record["completedAtMs"].is_i64();
-    let at_key = if legacy_completed { "completedAtMs" } else { observer.at_key };
+    let at_key = if legacy_completed {
+        "completedAtMs"
+    } else {
+        observer.at_key
+    };
     let at = record[at_key]
         .as_i64()
         .filter(|s| *s >= start)
@@ -97,21 +102,26 @@ mod tests {
     #[test]
     fn legacy_success_and_new_running_observations_share_the_contract() {
         let legacy = parse_observation("opencode", &fixture()).unwrap();
-        assert_eq!(legacy.data["state"],"completed");
-        assert_eq!(legacy.at_ms,2000);
-        let mut running=fixture();running["state"]=json!("running");running["observedAtMs"]=json!(3000);
-        let current=parse_observation("opencode",&running).unwrap();
-        assert_eq!(current.data["state"],"running");
+        assert_eq!(legacy.data["state"], "completed");
+        assert_eq!(legacy.at_ms, 2000);
+        let mut running = fixture();
+        running["state"] = json!("running");
+        running["observedAtMs"] = json!(3000);
+        let current = parse_observation("opencode", &running).unwrap();
+        assert_eq!(current.data["state"], "running");
         assert!(current.data["outcome"].is_null());
-        assert_eq!(current.at_ms,3000);
+        assert_eq!(current.at_ms, 3000);
     }
     #[test]
     fn invalid_new_observations_never_fall_back_to_success() {
-        let mut malformed=fixture();malformed["state"]=json!("bogus");
-        assert!(parse_observation("opencode",&malformed).is_err());
-        let mut missing=fixture();missing["observedAtMs"]=json!(3000);
-        assert!(parse_observation("opencode",&missing).is_err());
-        let mut reversed=fixture();reversed["completedAtMs"]=json!(500);
-        assert!(parse_observation("opencode",&reversed).is_err());
+        let mut malformed = fixture();
+        malformed["state"] = json!("bogus");
+        assert!(parse_observation("opencode", &malformed).is_err());
+        let mut missing = fixture();
+        missing["observedAtMs"] = json!(3000);
+        assert!(parse_observation("opencode", &missing).is_err());
+        let mut reversed = fixture();
+        reversed["completedAtMs"] = json!(500);
+        assert!(parse_observation("opencode", &reversed).is_err());
     }
 }

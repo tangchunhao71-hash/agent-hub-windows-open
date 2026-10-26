@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! One app-owned event history, shared by every presentation and host relay.
 //! Ported from IslandEvents/QuotaAlerts/ResetCreditGrants; UI preferences consume
 //! then suppress facts rather than keeping another independent diff history.
@@ -83,9 +84,11 @@ impl Tracker {
             if at <= self.started || at > now || self.seen.insert(key.clone(), at).is_some() {
                 continue;
             }
-            let mut event=json!({"kind":"completion","at":iso(at),"startedAt":session["liveFacts"]["turnStartedAt"],"source":session["source"],"sessionId":session["id"],"turnId":session["liveFacts"]["turnId"],"title":session["title"],"model":session["model"],"message":session["liveFacts"]["message"],"navigationTarget":session["navigationTarget"],"cwd":session["cwd"],"logPath":session["logPath"]});
-            if session["botIdentity"].is_object() { event["botIdentity"]=session["botIdentity"].clone(); }
-            self.push(&key,event);
+            let mut event = json!({"kind":"completion","at":iso(at),"startedAt":session["liveFacts"]["turnStartedAt"],"source":session["source"],"sessionId":session["id"],"turnId":session["liveFacts"]["turnId"],"title":session["title"],"model":session["model"],"message":session["liveFacts"]["message"],"navigationTarget":session["navigationTarget"],"cwd":session["cwd"],"logPath":session["logPath"]});
+            if session["botIdentity"].is_object() {
+                event["botIdentity"] = session["botIdentity"].clone();
+            }
+            self.push(&key, event);
         }
         let ids = quotas
             .iter()

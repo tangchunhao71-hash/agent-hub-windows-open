@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Provider account readings on one worker, one at a time, with one result
 //! cache outside the Runtime mutex. A reading holds the collection gate, so it
 //! never overlaps a local pass either.
@@ -19,9 +20,9 @@ use std::{
 
 mod credentials;
 mod engine;
+mod grok_activity;
 mod homes;
 mod host;
-mod grok_activity;
 pub use grok_activity::GrokActivityReader;
 pub(crate) mod http;
 mod restart_copy;
@@ -1307,7 +1308,9 @@ mod tests {
         state.running.insert("codebuddy".into());
         assert_eq!(due_after("workbuddy", &reading, &state), Duration::ZERO);
         state.running.clear();
-        state.finished.insert("codebuddy".into(), chrono::Utc::now().timestamp_millis());
+        state
+            .finished
+            .insert("codebuddy".into(), chrono::Utc::now().timestamp_millis());
         assert_eq!(due_after("workbuddy", &reading, &state), Duration::ZERO);
         assert!(!READERS.iter().any(|(provider, _)| *provider == "codebuddy"));
     }

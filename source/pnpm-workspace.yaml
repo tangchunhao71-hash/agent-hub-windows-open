@@ -28,3 +28,8 @@ catalog:
 
 allowBuilds:
   esbuild: true
+
+# 2.3.8's published gitHead is unavailable. Keep a verifiable upstream
+# version with the same declared MIT license and React peer range.
+overrides:
+  react-remove-scroll-bar: 2.3.7

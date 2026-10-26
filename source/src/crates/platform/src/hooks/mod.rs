@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Public, per-user client callbacks. Constructing this owner neither installs
 //! hooks nor starts a collector. Only an explicit configure(true) opens IPC.
 use agent_hud_agents::HookEvent;
@@ -293,26 +294,47 @@ mod startup_tests {
         let executable = fixture.path().join("installed-owner.exe");
         std::fs::write(&executable, b"fixture").unwrap();
         let mut hooks = Hooks::start(
-            fixture.path().join("data"), Requests::default(), Arc::new(|| {}),
-        ).unwrap();
-        hooks.delegate_owner(InstallContext {
-            home, environment: Default::default(),
-            executable: executable.clone(), canonical_executable: Some(executable),
-        }).unwrap();
+            fixture.path().join("data"),
+            Requests::default(),
+            Arc::new(|| {}),
+        )
+        .unwrap();
+        hooks
+            .delegate_owner(InstallContext {
+                home,
+                environment: Default::default(),
+                executable: executable.clone(),
+                canonical_executable: Some(executable),
+            })
+            .unwrap();
         // Start just this fixture's callback transport; never attach a native
         // desktop observer or use the real user's configuration during tests.
-        hooks.server = Some(transport::Server::start(
-            &hooks.data, hooks.requests.clone(), hooks.wake.clone(), hooks.reminders.clone(),
-        ).unwrap());
+        hooks.server = Some(
+            transport::Server::start(
+                &hooks.data,
+                hooks.requests.clone(),
+                hooks.wake.clone(),
+                hooks.reminders.clone(),
+            )
+            .unwrap(),
+        );
         let error = hooks.restore_enabled().unwrap_err();
         let status = hooks.status(true);
         assert_eq!(status["notice"], error);
         assert_eq!(status["enabled"], true);
         assert_eq!(status["desired"], true);
         assert_eq!(std::fs::read(&configuration).unwrap(), b"{invalid-json");
-        assert_eq!(transport::send(
-            &hooks.data, "codex", "--session-origin-hook", &json!({}), None,
-        ).unwrap(), Some(json!({})));
+        assert_eq!(
+            transport::send(
+                &hooks.data,
+                "codex",
+                "--session-origin-hook",
+                &json!({}),
+                None,
+            )
+            .unwrap(),
+            Some(json!({}))
+        );
         hooks.stop();
         assert!(!hooks.is_listening());
     }

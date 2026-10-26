@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! The public AntigravityNavigation contract: an already-running desktop's
 //! loopback CDP inventory and /c/<UUID>. Never launches an application/server.
 use agent_hud_core::l10n;
@@ -119,7 +120,10 @@ fn inventory(client: &Client, port: u16, deadline: Instant) -> Result<Vec<Page>,
 fn activate_page(client: &Client, port: u16, id: &str, deadline: Instant) -> Result<bool, String> {
     let mut url = Url::parse(&format!("http://127.0.0.1:{port}/json/activate/")).unwrap();
     url.path_segments_mut().unwrap().pop_if_empty().push(id);
-    client.get(url).timeout(remaining(deadline)?).send()
+    client
+        .get(url)
+        .timeout(remaining(deadline)?)
+        .send()
         .map(|response| response.status() == 200)
         .map_err(|_| "Antigravity page activation is unavailable".into())
 }
@@ -223,8 +227,10 @@ fn workspace_uri(cwd: Option<&str>) -> Option<String> {
         return None;
     }
     let bytes = cwd.as_bytes();
-    let drive = bytes.len() >= 3 && bytes[0].is_ascii_alphabetic()
-        && bytes[1] == b':' && matches!(bytes[2], b'/' | b'\\');
+    let drive = bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && matches!(bytes[2], b'/' | b'\\');
     let path = if drive {
         format!("/{}", cwd.replace('\\', "/"))
     } else if cwd.starts_with('/') && !cwd.starts_with("//") && !cwd.contains('\\') {
@@ -288,24 +294,51 @@ mod tests {
     const ID: &str = "00000000-0000-4000-8000-000000000001";
     #[test]
     fn workspace_paths_preserve_unicode_spaces_and_literal_url_characters() {
-        assert_eq!(workspace_uri(Some(r"C:\Users\测试\My Project")),
-            Some("antigravity://file/C:/Users/%E6%B5%8B%E8%AF%95/My%20Project".into()));
-        assert_eq!(workspace_uri(Some("D:/work/a%2Fb#c?d")),
-            Some("antigravity://file/D:/work/a%252Fb%23c%3Fd".into()));
-        assert_eq!(workspace_uri(Some("/Users/me/project")),
-            Some("antigravity://file/Users/me/project".into()));
-        for invalid in ["", "relative/path", "C:relative", r"\\server\share", "//server/share", "https://example.com", "C:/line\nbreak"] {
+        assert_eq!(
+            workspace_uri(Some(r"C:\Users\测试\My Project")),
+            Some("antigravity://file/C:/Users/%E6%B5%8B%E8%AF%95/My%20Project".into())
+        );
+        assert_eq!(
+            workspace_uri(Some("D:/work/a%2Fb#c?d")),
+            Some("antigravity://file/D:/work/a%252Fb%23c%3Fd".into())
+        );
+        assert_eq!(
+            workspace_uri(Some("/Users/me/project")),
+            Some("antigravity://file/Users/me/project".into())
+        );
+        for invalid in [
+            "",
+            "relative/path",
+            "C:relative",
+            r"\\server\share",
+            "//server/share",
+            "https://example.com",
+            "C:/line\nbreak",
+        ] {
             assert!(workspace_uri(Some(invalid)).is_none(), "{invalid:?}");
         }
     }
     fn page(id: &str, path: &str) -> Page {
-        Page { id: id.into(), kind: "page".into(), url: format!("https://127.0.0.1:9000/{path}"),
-            web_socket_debugger_url: Some(format!("ws://127.0.0.1:9222/devtools/page/{id}")) }
+        Page {
+            id: id.into(),
+            kind: "page".into(),
+            url: format!("https://127.0.0.1:9000/{path}"),
+            web_socket_debugger_url: Some(format!("ws://127.0.0.1:9222/devtools/page/{id}")),
+        }
     }
     #[test]
     fn cdp_destination_requires_unambiguous_local_page() {
         assert!(destination(ID, &[page("one", ""), page("two", "")], 9222).is_none());
-        assert_eq!(destination(ID, &[page("one", ""), page("two", &format!("c/{ID}"))], 9222).unwrap().id, "two");
+        assert_eq!(
+            destination(
+                ID,
+                &[page("one", ""), page("two", &format!("c/{ID}"))],
+                9222
+            )
+            .unwrap()
+            .id,
+            "two"
+        );
         let mut remote = page("one", "");
         remote.web_socket_debugger_url = Some("ws://example.com:9222/devtools/page/one".into());
         assert!(destination(ID, &[remote], 9222).is_none());
@@ -321,21 +354,39 @@ mod tests {
             let mut paths = Vec::new();
             for _ in 0..2 {
                 let (mut stream, _) = listener.accept().unwrap();
-                stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(3)))
+                    .unwrap();
                 let mut reader = BufReader::new(stream.try_clone().unwrap());
                 let mut line = String::new();
                 reader.read_line(&mut line).unwrap();
                 paths.push(line.split_whitespace().nth(1).unwrap().to_owned());
-                loop { line.clear(); reader.read_line(&mut line).unwrap(); if line == "\r\n" { break; } }
+                loop {
+                    line.clear();
+                    reader.read_line(&mut line).unwrap();
+                    if line == "\r\n" {
+                        break;
+                    }
+                }
                 let body = if paths.len() == 1 {
                     json!([{"id":"page-one","type":"page","url":format!("https://127.0.0.1:9000/c/{ID}"),
                         "webSocketDebuggerUrl":format!("ws://127.0.0.1:{port}/devtools/page/page-one")}]).to_string()
-                } else { "Target activated".into() };
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+                } else {
+                    "Target activated".into()
+                };
+                write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
             }
             paths
         });
         assert!(navigate(ID, port).unwrap());
-        assert_eq!(server.join().unwrap(), ["/json/list", "/json/activate/page-one"]);
+        assert_eq!(
+            server.join().unwrap(),
+            ["/json/list", "/json/activate/page-one"]
+        );
     }
 }

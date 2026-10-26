@@ -1,9 +1,12 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Windows: a taskbar entry, tray access, and Ctrl+Alt+H to toggle the glow.
 
 // Local Windows port: native global shortcut, retained for the app lifetime.
 #[path = "hotkey_windows.rs"]
 mod hotkey;
-pub(crate) fn install(app: &tauri::AppHandle) { hotkey::install(app); }
+pub(crate) fn install(app: &tauri::AppHandle) {
+    hotkey::install(app);
+}
 
 pub(crate) fn window_opened(_app: &tauri::AppHandle) {}
 

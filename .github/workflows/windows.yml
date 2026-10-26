@@ -50,13 +50,29 @@ jobs:
       - run: pnpm run test:build-tooling
       - name: Prepare resources for Rust checks
         run: node src/tooling/package-resources.mjs
+      - name: Generate target-specific dependency notices
+        run: |
+          New-Item -ItemType Directory -Force .build | Out-Null
+          pnpm licenses list --prod --json | Set-Content .build/npm-licenses.json -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo metadata --locked --format-version 1 --filter-platform x86_64-pc-windows-msvc | Set-Content .build/cargo-metadata.json -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node ../scripts/collect-release-notices.mjs .build/npm-licenses.json .build/cargo-metadata.json docs/dependency-notices.txt x86_64-pc-windows-msvc
       - name: Check and test native Windows adapters
         run: |
           cargo clippy --workspace --tests --locked -- -D warnings
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --workspace --locked --no-fail-fast
       - name: Build Windows NSIS installer
-        run: pnpm run build:windows -- --bundle
+        run: |
+          $taskVsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $taskVsRoot = & $taskVsWhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or -not $taskVsRoot) { throw 'MSVC installation not found' }
+          $taskVcVars = Join-Path $taskVsRoot 'VC/Auxiliary/Build/vcvars64.bat'
+          pwsh -NoProfile -File ../scripts/build-windows.ps1 -Bundle -VcVars $taskVcVars -Receipt (Join-Path (Get-Location) '.build/windows-release.json')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Package candidate with license and actual signature report
+        run: node ../scripts/package-windows.mjs .build/windows-release.json
       - name: Record installer provenance and checksum
         run: |
           $bundle = 'target/release/bundle/nsis'
@@ -64,10 +80,13 @@ jobs:
           if ($installers.Count -ne 1) { throw 'Expected one NSIS installer' }
           $revision = git rev-parse HEAD
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $signature = node ../scripts/signature-report.mjs $installers[0].FullName | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           @{
             revision = $revision
             run = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
-            signed = $false
+            signed = $signature.trusted
+            signature = $signature
           } | ConvertTo-Json | Set-Content "$bundle/provenance.json"
           $installers | ForEach-Object {
             "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
@@ -76,8 +95,10 @@ jobs:
         with:
           name: agent-bot-windows-x86_64-unsigned
           path: |
+            local-only/windows-delivery/*.zip
+            local-only/windows-delivery/*.sha256
             source/target/release/bundle/nsis/*-setup.exe
             source/target/release/bundle/nsis/provenance.json
             source/target/release/bundle/nsis/SHA256SUMS
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3

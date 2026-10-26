@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Latest client-reported evidence beside the transcript. This is not another
 //! transcript reducer or usage ledger: origins never imply work, attention never
 //! creates an actionable approval, and callbacks never mint token/cost facts.
@@ -44,7 +45,9 @@ fn observation_state(event: &HookEvent, now: i64) -> Option<&'static str> {
     // Pi and OpenCode report in-flight snapshots every 15 seconds. A lost
     // observer must not leave a source permanently working.
     match event.data["state"].as_str()? {
-        "running" | "waiting" if now.saturating_sub(event.at_ms) >= OBSERVER_HEARTBEAT => Some("idle"),
+        "running" | "waiting" if now.saturating_sub(event.at_ms) >= OBSERVER_HEARTBEAT => {
+            Some("idle")
+        }
         "running" => Some("running"),
         "waiting" => Some("waiting"),
         "completed" | "ended" => Some("idle"),
@@ -548,17 +551,17 @@ mod tests {
         for state in ["running", "waiting"] {
             let mut core = crate::AgentHudCore::new(vec![], directory.path().join(state));
             core.hook_events.ingest(&[observation(state, at)], at);
-            let before = core
-                .hook_events
-                .extra_sessions(at + OBSERVER_HEARTBEAT - 1, 1, &HashSet::new());
+            let before =
+                core.hook_events
+                    .extra_sessions(at + OBSERVER_HEARTBEAT - 1, 1, &HashSet::new());
             assert_eq!(before[0]["state"], state);
             assert!(before[0]["liveFacts"]["endedAt"].is_null());
             core.refresh_sessions_revision(at + OBSERVER_HEARTBEAT - 1);
             let revision = core.sessions_revision;
 
-            let after = core
-                .hook_events
-                .extra_sessions(at + OBSERVER_HEARTBEAT, 1, &HashSet::new());
+            let after =
+                core.hook_events
+                    .extra_sessions(at + OBSERVER_HEARTBEAT, 1, &HashSet::new());
             assert_eq!(after[0]["state"], "idle");
             assert_eq!(after[0]["liveFacts"]["endedAt"], iso(at));
             assert!(after[0]["liveFacts"]["outcome"].is_null());

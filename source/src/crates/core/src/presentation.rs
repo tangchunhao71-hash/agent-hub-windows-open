@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Client evidence overlays presentation; it never changes token accounting.
 use super::*;
 
@@ -72,8 +73,11 @@ impl Presentation<'_> {
                 }
                 Some("deepseek") => {
                     let raw = id.strip_prefix("deepseek:").unwrap_or(&id);
-                    if !raw.is_empty() && raw.len() <= 128
-                        && raw.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+                    if !raw.is_empty()
+                        && raw.len() <= 128
+                        && raw
+                            .bytes()
+                            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
                     {
                         session["navigationTarget"] = json!({"kind":"deepseek-session","id":raw});
                     }
@@ -166,10 +170,16 @@ impl Presentation<'_> {
         {
             return "waiting";
         }
-        if let Some(state) = self.grok_activity.session_state(&log.source, &log.id, self.now) {
+        if let Some(state) = self
+            .grok_activity
+            .session_state(&log.source, &log.id, self.now)
+        {
             return state;
         }
-        if let Some(state) = self.source_activity.session_state(&log.source, &log.id, self.now) {
+        if let Some(state) = self
+            .source_activity
+            .session_state(&log.source, &log.id, self.now)
+        {
             return state;
         }
         if self.hooks.has_evidence(&log.source, &log.id) {
@@ -205,8 +215,17 @@ impl Presentation<'_> {
             .flatten()
             .filter_map(|row| row["at"].as_str().and_then(metering::date_ms))
             .max();
-        at.into_iter().chain(pending).chain(self.grok_activity.activity_at(&log.source, &log.id, self.now))
-            .chain(self.source_activity.activity_at(&log.source, &log.id, self.now)).max()
+        at.into_iter()
+            .chain(pending)
+            .chain(
+                self.grok_activity
+                    .activity_at(&log.source, &log.id, self.now),
+            )
+            .chain(
+                self.source_activity
+                    .activity_at(&log.source, &log.id, self.now),
+            )
+            .max()
     }
     pub(super) fn recent(&self, log: &LogHead, days: i64, child: Option<i64>) -> bool {
         self.pending(&log.source, &log.id).is_some()

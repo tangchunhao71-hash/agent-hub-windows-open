@@ -1,3 +1,4 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 //! Qwen's explicit turn-attempt/result and request-lifecycle records.
 //! API usage and the presence of an assistant message never establish completion.
 use crate::transcript::at;
@@ -7,7 +8,9 @@ use serde_json::Value;
 const MAX_FUTURE_MS: i64 = 90_000;
 
 fn identity(value: &Value) -> Option<&str> {
-    value.as_str().filter(|v| !v.trim().is_empty() && v.len() <= 256)
+    value
+        .as_str()
+        .filter(|v| !v.trim().is_empty() && v.len() <= 256)
 }
 
 fn clock(value: &Value, now: i64) -> Option<i64> {
@@ -36,13 +39,18 @@ fn start(log: &mut Log, id: &str, started: i64, observed: i64) {
     // An old phase can be appended after its terminal record with a newer
     // envelope clock. Its own start still belongs to the closed attempt, even
     // if another prompt is now last. A true retry must start after that end.
-    if log.live.turns.iter().rev()
+    if log
+        .live
+        .turns
+        .iter()
+        .rev()
         .find(|turn| turn.id.as_deref() == Some(id))
         .is_some_and(|last| !last.running && started <= last.observed)
     {
         return;
     }
-    log.live.observe_source(id, true, Some(started), observed, None);
+    log.live
+        .observe_source(id, true, Some(started), observed, None);
 }
 
 pub(super) fn observe(log: &mut Log, record: &Value) {
@@ -74,9 +82,13 @@ fn observe_at(log: &mut Log, record: &Value, now: i64) {
             }
         }
         Some("turn_result") => {
-            let Some(id) = identity(&record["promptId"])
-                .or_else(|| identity(&payload["promptId"])) else { return; };
-            let Some(ended) = epoch_clock(&payload["endedAt"], now) else { return; };
+            let Some(id) = identity(&record["promptId"]).or_else(|| identity(&payload["promptId"]))
+            else {
+                return;
+            };
+            let Some(ended) = epoch_clock(&payload["endedAt"], now) else {
+                return;
+            };
             let started = match payload.get("startedAt") {
                 Some(value) => match epoch_clock(value, now).filter(|start| *start <= ended) {
                     Some(start) => Some(start),
@@ -101,19 +113,29 @@ fn observe_at(log: &mut Log, record: &Value, now: i64) {
         }
         Some("ui_telemetry") => {
             let event = &payload["uiEvent"];
-            if event["event.name"] != "request_lifecycle" || event["v"] != 1
-                || event["kind"] != "request" || event["sessionId"].as_str() != log.id.strip_prefix("qwen:")
-                || identity(&event["executionId"]).is_none() || !event["subagentId"].is_null()
+            if event["event.name"] != "request_lifecycle"
+                || event["v"] != 1
+                || event["kind"] != "request"
+                || event["sessionId"].as_str() != log.id.strip_prefix("qwen:")
+                || identity(&event["executionId"]).is_none()
+                || !event["subagentId"].is_null()
             {
                 return;
             }
-            let (Some(id), Some(started)) = (identity(&event["promptId"]), epoch_clock(&event["startedAt"], now)) else { return; };
+            let (Some(id), Some(started)) = (
+                identity(&event["promptId"]),
+                epoch_clock(&event["startedAt"], now),
+            ) else {
+                return;
+            };
             match event["phase"].as_str() {
                 Some("started") => start(log, id, started, observed.unwrap_or(started)),
                 Some("ended") => {
                     // A request may finish before tools or another request. Only the
                     // explicit turn_result closes the turn and can declare success.
-                    if let Some(ended) = epoch_clock(&event["endedAt"], now).filter(|end| *end >= started) {
+                    if let Some(ended) =
+                        epoch_clock(&event["endedAt"], now).filter(|end| *end >= started)
+                    {
                         log.live.touch_source(id, ended);
                     }
                 }
@@ -130,7 +152,9 @@ mod tests {
     use serde_json::json;
 
     const NOW: i64 = 1_792_901_000_000;
-    fn log() -> Log { Log::new("qwen/session.jsonl".into(), "qwen") }
+    fn log() -> Log {
+        Log::new("qwen/session.jsonl".into(), "qwen")
+    }
     fn attempt(id: &str, time: i64) -> Value {
         json!({"sessionId":"s","type":"system","subtype":"turn_attempt","promptId":id,"timestamp":crate::iso(time)})
     }
@@ -142,47 +166,71 @@ mod tests {
     }
     #[test]
     fn explicit_attempt_and_settlement_drive_work_without_usage() {
-        for (state, outcome) in [("completed","completed"),("cancelled","interrupted"),("error","failed")] {
-            let mut log=log(); log.parse(&attempt("p",NOW));
-            assert_eq!(log.live.session_state(NOW,"qwen",None),"running");
-            log.parse(&result("p",state,NOW+10));
-            assert_eq!(log.live.session_state(NOW+10,"qwen",None),"idle");
-            assert_eq!(log.live.turns.back().unwrap().outcome.as_deref(),Some(outcome));
-            assert_eq!(log.usage.total(),0);
+        for (state, outcome) in [
+            ("completed", "completed"),
+            ("cancelled", "interrupted"),
+            ("error", "failed"),
+        ] {
+            let mut log = log();
+            log.parse(&attempt("p", NOW));
+            assert_eq!(log.live.session_state(NOW, "qwen", None), "running");
+            log.parse(&result("p", state, NOW + 10));
+            assert_eq!(log.live.session_state(NOW + 10, "qwen", None), "idle");
+            assert_eq!(
+                log.live.turns.back().unwrap().outcome.as_deref(),
+                Some(outcome)
+            );
+            assert_eq!(log.usage.total(), 0);
         }
     }
     #[test]
     fn request_end_does_not_pretend_the_turn_or_tools_finished() {
-        let mut log=log(); log.parse(&request("p","started",NOW));
-        assert_eq!(log.live.session_state(NOW,"qwen",None),"running");
-        log.parse(&request("p","ended",NOW+10));
-        assert_eq!(log.live.session_state(NOW+10,"qwen",None),"running");
+        let mut log = log();
+        log.parse(&request("p", "started", NOW));
+        assert_eq!(log.live.session_state(NOW, "qwen", None), "running");
+        log.parse(&request("p", "ended", NOW + 10));
+        assert_eq!(log.live.session_state(NOW + 10, "qwen", None), "running");
         assert!(log.live.turns.back().unwrap().outcome.is_none());
-        log.parse(&result("p","completed",NOW+20));
-        assert_eq!(log.live.session_state(NOW+20,"qwen",None),"idle");
+        log.parse(&result("p", "completed", NOW + 20));
+        assert_eq!(log.live.session_state(NOW + 20, "qwen", None), "idle");
     }
     #[test]
     fn duplicate_and_old_starts_cannot_resurrect_or_close_newer_work() {
-        let mut log=log(); log.parse(&attempt("old",NOW));log.parse(&result("old","completed",NOW+5));
-        log.parse(&attempt("old",NOW));
-        assert_eq!(log.live.session_state(NOW+5,"qwen",None),"idle");
-        log.parse(&attempt("new",NOW+10));log.parse(&result("old","completed",NOW+15));
-        assert_eq!(log.live.session_state(NOW+15,"qwen",None),"running");
-        assert_eq!(log.live.turns.back().unwrap().id.as_deref(),Some("new"));
+        let mut log = log();
+        log.parse(&attempt("old", NOW));
+        log.parse(&result("old", "completed", NOW + 5));
+        log.parse(&attempt("old", NOW));
+        assert_eq!(log.live.session_state(NOW + 5, "qwen", None), "idle");
+        log.parse(&attempt("new", NOW + 10));
+        log.parse(&result("old", "completed", NOW + 15));
+        assert_eq!(log.live.session_state(NOW + 15, "qwen", None), "running");
+        assert_eq!(log.live.turns.back().unwrap().id.as_deref(), Some("new"));
     }
     #[test]
     fn copied_invalid_and_subagent_events_do_not_create_parent_work() {
-        let mut log=log(); let mut copied=attempt("p",NOW);copied["forkedFrom"]=json!("parent");log.parse(&copied);
-        let mut other=request("p","started",NOW);other["systemPayload"]["uiEvent"]["sessionId"]=json!("other");log.parse(&other);
-        let mut child=request("p","started",NOW);child["systemPayload"]["uiEvent"]["subagentId"]=json!("child");log.parse(&child);
-        log.parse(&attempt("",NOW));log.parse(&result("p","completed",-1));
-        assert_eq!(log.live.session_state(NOW,"qwen",None),"idle");
+        let mut log = log();
+        let mut copied = attempt("p", NOW);
+        copied["forkedFrom"] = json!("parent");
+        log.parse(&copied);
+        let mut other = request("p", "started", NOW);
+        other["systemPayload"]["uiEvent"]["sessionId"] = json!("other");
+        log.parse(&other);
+        let mut child = request("p", "started", NOW);
+        child["systemPayload"]["uiEvent"]["subagentId"] = json!("child");
+        log.parse(&child);
+        log.parse(&attempt("", NOW));
+        log.parse(&result("p", "completed", -1));
+        assert_eq!(log.live.session_state(NOW, "qwen", None), "idle");
         assert!(log.live.turns.is_empty());
     }
     #[test]
     fn work_expires_without_new_lifecycle_events() {
-        let mut log=log();log.parse(&attempt("p",NOW));
-        assert_eq!(log.live.session_state(NOW+1_800_000,"qwen",None),"idle");
+        let mut log = log();
+        log.parse(&attempt("p", NOW));
+        assert_eq!(
+            log.live.session_state(NOW + 1_800_000, "qwen", None),
+            "idle"
+        );
     }
 
     #[test]
@@ -206,7 +254,10 @@ mod tests {
         assert_eq!(log.live.turns.back().unwrap().observed, before);
         assert!(log.live.turns.back().unwrap().running);
         assert!(log.live.turns.back().unwrap().outcome.is_none());
-        assert_eq!(log.live.session_state(NOW + 1_800_000, "qwen", None), "idle");
+        assert_eq!(
+            log.live.session_state(NOW + 1_800_000, "qwen", None),
+            "idle"
+        );
 
         let mut future_start = result("p", "completed", NOW + 10);
         future_start["systemPayload"]["startedAt"] = json!(future);
@@ -216,8 +267,15 @@ mod tests {
 
     #[test]
     fn malformed_and_overflowing_clocks_never_change_lifecycle() {
-        for invalid in [json!(0), json!(-1), json!(1.5), json!(i64::MAX),
-            json!(u64::MAX), json!(null), json!("not-a-clock")] {
+        for invalid in [
+            json!(0),
+            json!(-1),
+            json!(1.5),
+            json!(i64::MAX),
+            json!(u64::MAX),
+            json!(null),
+            json!("not-a-clock"),
+        ] {
             let mut log = log();
             log.own_id("s");
             let mut bad_attempt = attempt("p", NOW);
@@ -234,12 +292,22 @@ mod tests {
             let mut bad_start = result("p", "completed", NOW + 10);
             bad_start["systemPayload"]["startedAt"] = invalid.clone();
             observe_at(&mut log, &bad_start, NOW);
-            assert_eq!(log.live.turns.back().unwrap().observed, NOW, "renewal: {invalid}");
-            assert!(log.live.turns.back().unwrap().running, "terminal: {invalid}");
+            assert_eq!(
+                log.live.turns.back().unwrap().observed,
+                NOW,
+                "renewal: {invalid}"
+            );
+            assert!(
+                log.live.turns.back().unwrap().running,
+                "terminal: {invalid}"
+            );
         }
         let mut log = log();
         observe_at(&mut log, &attempt("p", NOW), i64::MAX);
-        assert!(log.live.turns.is_empty(), "upper clock calculation must not overflow");
+        assert!(
+            log.live.turns.is_empty(),
+            "upper clock calculation must not overflow"
+        );
     }
 
     #[test]
@@ -256,9 +324,16 @@ mod tests {
 
         let mut history = self::log();
         observe_at(&mut history, &attempt("old", NOW - 86_400_000), NOW);
-        observe_at(&mut history, &result("old", "completed", NOW - 86_399_000), NOW);
+        observe_at(
+            &mut history,
+            &result("old", "completed", NOW - 86_399_000),
+            NOW,
+        );
         assert_eq!(history.live.session_state(NOW, "qwen", None), "idle");
-        assert_eq!(history.live.turns.back().unwrap().outcome.as_deref(), Some("completed"));
+        assert_eq!(
+            history.live.turns.back().unwrap().outcome.as_deref(),
+            Some("completed")
+        );
     }
 
     #[test]
@@ -271,14 +346,20 @@ mod tests {
             let mut late = request("p", "started", NOW);
             late["timestamp"] = crate::iso(NOW + 20);
             observe_at(&mut log, &late, NOW + 20);
-            assert!(!log.live.turns.back().unwrap().running, "late {outcome} phase");
+            assert!(
+                !log.live.turns.back().unwrap().running,
+                "late {outcome} phase"
+            );
             assert_eq!(log.live.turns.back().unwrap().observed, NOW + 10);
 
             let mut retry = request("p", "started", NOW + 30);
             retry["timestamp"] = crate::iso(NOW + 30);
             retry["systemPayload"]["uiEvent"]["startedAt"] = json!(NOW + 30);
             observe_at(&mut log, &retry, NOW + 30);
-            assert!(log.live.turns.back().unwrap().running, "new retry after {outcome}");
+            assert!(
+                log.live.turns.back().unwrap().running,
+                "new retry after {outcome}"
+            );
             assert_eq!(log.live.turns.back().unwrap().observed, NOW + 30);
             assert!(log.live.turns.back().unwrap().outcome.is_none());
         }

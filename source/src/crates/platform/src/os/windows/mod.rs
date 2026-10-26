@@ -1,6 +1,7 @@
+// Agent Bot modifications, 2026-10-26; upstream portions retain their original licenses.
 use super::{joined_path, path_entries, variable, Environment};
-mod apps;
 mod antigravity;
+mod apps;
 mod codex;
 mod files;
 pub(crate) mod pipe;
@@ -145,7 +146,7 @@ pub(crate) fn reveal_transcript(path: &Path) -> Result<(), String> {
 pub(crate) fn legacy_quota_database(_home: &Path) -> Option<PathBuf> {
     None
 }
-pub(crate) use antigravity::{processes, listening_ports};
+pub(crate) use antigravity::{listening_ports, processes};
 
 pub(crate) fn source_roots(home: &Path) -> Vec<agent_hud_core::SourceRoot> {
     super::portable_cli_roots(home)
